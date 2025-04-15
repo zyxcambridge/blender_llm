@@ -308,6 +308,10 @@ class AI_OT_quick_input(bpy.types.Operator):
     bl_description = "Toggle AI Assistant input panel"
 
     def execute(self, context):
+        # Add debug print statements with forced flush
+        print("\n==== AI Assistant Quick Input ====", flush=True)
+        print(f"Context: {context}", flush=True)
+
         # Check if the property group is registered
         if not hasattr(context.scene, "ai_assistant"):
             self.report({'ERROR'}, "AI Assistant not initialized yet. Please restart Blender.")
@@ -316,6 +320,38 @@ class AI_OT_quick_input(bpy.types.Operator):
         # Toggle the keep_open property to show/hide the panel
         ai_props = context.scene.ai_assistant
         ai_props.keep_open = not ai_props.keep_open
+        print(f"Panel keep_open set to: {ai_props.keep_open}", flush=True)
+
+        # Call the debug function
+        debug_ai_assistant()
+
+        return {'FINISHED'}
+
+
+# Debug operator with breakpoint
+class AI_OT_debug(bpy.types.Operator):
+    bl_idname = "ai.debug"
+    bl_label = "Debug AI"
+    bl_description = "Debug the AI Assistant (sets breakpoint)"
+
+    def execute(self, context):
+        print("\n==== AI Assistant Debug Breakpoint ====", flush=True)
+        print("Setting breakpoint...", flush=True)
+        sys.stdout.flush()
+
+        # This will definitely trigger a breakpoint
+        import pdb
+
+        pdb.set_trace()
+
+        # Create debug variables
+        import builtins
+
+        builtins.ai_debug_context = context
+        builtins.ai_debug_self = self
+
+        # Call the debug function
+        debug_ai_assistant()
 
         return {'FINISHED'}
 
@@ -330,6 +366,7 @@ classes = (
     AI_OT_send_message,
     AI_OT_clear_history,
     AI_OT_quick_input,
+    AI_OT_debug,
 )
 
 
