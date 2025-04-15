@@ -364,7 +364,8 @@ class AI_OT_debug(bpy.types.Operator):
 # List of classes to register
 classes = (
     AIMessageItem,
-    AIAssistantProperties,
+    # AIAssistantProperties is registered separately to ensure correct order
+    # AIAssistantProperties,
     AI_UL_messages,
     VIEW3D_PT_ai_assistant,
     VIEW3D_PT_ai_assistant_input,
@@ -399,20 +400,37 @@ def keep_ai_panel_open(dummy):
 
 
 def register():
-    for cls in classes:
-        bpy.utils.register_class(cls)
+    print("Registering AI Assistant...", flush=True)
 
-    # Register the property group
+    # First register the property class
+    bpy.utils.register_class(AIAssistantProperties)
+
+    # Then register the property group
     if not hasattr(bpy.types.Scene, "ai_assistant"):
+        print("Creating ai_assistant property...", flush=True)
         bpy.types.Scene.ai_assistant = bpy.props.PointerProperty(type=AIAssistantProperties)
+
+    # Register all other classes
+    for cls in classes:
+        if cls != AIAssistantProperties:  # Skip AIAssistantProperties as it's already registered
+            bpy.utils.register_class(cls)
 
     # Register the handler to keep the panel open
     if keep_ai_panel_open not in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.append(keep_ai_panel_open)
 
-    # Initialize a default message
-    if hasattr(bpy.context.scene, "ai_assistant"):
-        bpy.context.scene.ai_assistant.keep_open = False
+    # Force initialization of the property group
+    # This is important to ensure it's available immediately
+    if hasattr(bpy.context, "scene") and bpy.context.scene is not None:
+        if hasattr(bpy.context.scene, "ai_assistant"):
+            print("Initializing ai_assistant properties...", flush=True)
+            bpy.context.scene.ai_assistant.keep_open = False
+            bpy.context.scene.ai_assistant.message = ""
+            print("AI Assistant initialized successfully!", flush=True)
+        else:
+            print("WARNING: ai_assistant property not available on scene", flush=True)
+    else:
+        print("WARNING: No valid scene context available for initialization", flush=True)
 
 
 def unregister():
