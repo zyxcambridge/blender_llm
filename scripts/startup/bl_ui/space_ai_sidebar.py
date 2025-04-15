@@ -379,23 +379,44 @@ classes = (
 # Handler to keep the AI Assistant panel open
 @bpy.app.handlers.persistent
 def keep_ai_panel_open(dummy):
+    # Make sure we have a valid context
+    if not hasattr(bpy, "context") or bpy.context is None:
+        print("No valid context in handler", flush=True)
+        return 0.1
+
+    # Make sure we have a valid scene
+    if not hasattr(bpy.context, "scene") or bpy.context.scene is None:
+        print("No valid scene in handler", flush=True)
+        return 0.1
+
     # Check if the property group is registered
     if not hasattr(bpy.context.scene, "ai_assistant"):
         # Register the property group if it's not already registered
         try:
+            print("Attempting to register ai_assistant in handler...", flush=True)
+            # Make sure the class is registered first
+            if AIAssistantProperties not in bpy.utils.bl_rna_get_subclasses(bpy.types.PropertyGroup):
+                bpy.utils.register_class(AIAssistantProperties)
+            # Then register the property
             bpy.types.Scene.ai_assistant = bpy.props.PointerProperty(type=AIAssistantProperties)
-        except:
+            print("Successfully registered ai_assistant in handler", flush=True)
+        except Exception as e:
+            print(f"Error registering ai_assistant in handler: {e}", flush=True)
             # If we can't register it now, we'll try again later
             return 0.1
 
     # Check if the panel should be kept open
-    if bpy.context.scene.ai_assistant.keep_open:
-        # Force the panel to stay open by accessing it
-        for window in bpy.context.window_manager.windows:
-            for area in window.screen.areas:
-                if area.type == 'TOPBAR':
-                    # This will force the panel to stay open
-                    pass
+    try:
+        if bpy.context.scene.ai_assistant.keep_open:
+            # Force the panel to stay open by accessing it
+            for window in bpy.context.window_manager.windows:
+                for area in window.screen.areas:
+                    if area.type == 'TOPBAR':
+                        # This will force the panel to stay open
+                        pass
+    except Exception as e:
+        print(f"Error in keep_ai_panel_open handler: {e}", flush=True)
+
     return 0.1  # Check again in 0.1 seconds
 
 
@@ -434,15 +455,31 @@ def register():
 
 
 def unregister():
+    print("Unregistering AI Assistant...", flush=True)
+
     # Unregister the handler
     if keep_ai_panel_open in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.remove(keep_ai_panel_open)
 
-    # Unregister the property group
-    del bpy.types.Scene.ai_assistant
-
+    # Unregister all classes first
     for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+        try:
+            bpy.utils.unregister_class(cls)
+        except Exception as e:
+            print(f"Error unregistering {cls.__name__}: {e}", flush=True)
+
+    # Unregister the property class last
+    try:
+        bpy.utils.unregister_class(AIAssistantProperties)
+    except Exception as e:
+        print(f"Error unregistering AIAssistantProperties: {e}", flush=True)
+
+    # Remove the property group
+    try:
+        del bpy.types.Scene.ai_assistant
+        print("AI Assistant property removed successfully", flush=True)
+    except Exception as e:
+        print(f"Error removing ai_assistant property: {e}", flush=True)
 
 
 if __name__ == "__main__":
