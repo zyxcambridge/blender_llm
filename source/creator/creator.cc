@@ -576,8 +576,8 @@ int main(int argc,
     /* Not supported, although it could be made to work if needed. */
     BLI_assert(app_state.main_arg_deferred == nullptr);
 
-    /* Shows the splash as needed. */
-    WM_init_splash_on_startup(C);
+    /* Removed splash screen display */
+    /* WM_init_splash_on_startup(C); */
 
     WM_main(C);
   }
