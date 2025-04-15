@@ -34,6 +34,15 @@ class TOPBAR_HT_upper_bar(Header):
 
         if not screen.show_fullscreen:
             layout.template_ID_tabs(window, "workspace", new="workspace.add", menu="TOPBAR_MT_workspace_menu")
+
+            # Empty space after the + button
+            layout.separator(factor=1.0)
+
+            # AI Assistant button - make it more prominent and place it after the + button
+            row = layout.row(align=True)
+            row.scale_x = 1.5
+            row.scale_y = 1.5
+            props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="AI Assistant", icon='COMMUNITY')
         else:
             layout.operator("screen.back_to_previous", icon='SCREEN_BACK', text="Back to Previous")
 
@@ -54,8 +63,10 @@ class TOPBAR_HT_upper_bar(Header):
 
         row = layout.row(align=True)
         row.template_search(
-            window, "view_layer",
-            scene, "view_layers",
+            window,
+            "view_layer",
+            scene,
+            "view_layers",
             new="scene.view_layer_add",
             unlink="scene.view_layer_remove",
         )
@@ -65,6 +76,7 @@ class TOPBAR_PT_tool_settings_extra(Panel):
     """
     Popover panel for adding extra options that don't fit in the tool settings header
     """
+
     bl_idname = "TOPBAR_PT_tool_settings_extra"
     bl_region_type = 'HEADER'
     bl_space_type = 'TOPBAR'
@@ -73,6 +85,7 @@ class TOPBAR_PT_tool_settings_extra(Panel):
 
     def draw(self, context):
         from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
+
         layout = self.layout
 
         # Get the active tool
@@ -94,6 +107,7 @@ class TOPBAR_PT_tool_fallback(Panel):
 
     def draw(self, context):
         from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
+
         layout = self.layout
 
         tool_settings = context.tool_settings
@@ -247,10 +261,10 @@ class TOPBAR_MT_file_new(Menu):
             icon = 'FILE_NEW'
             show_more = len(paths) > (splash_limit - 1)
             if show_more:
-                paths = paths[:splash_limit - 2]
+                paths = paths[: splash_limit - 2]
         elif use_more:
             icon = 'FILE_NEW'
-            paths = paths[splash_limit - 2:]
+            paths = paths[splash_limit - 2 :]
             show_more = False
         else:
             icon = 'NONE'
@@ -360,8 +374,7 @@ class TOPBAR_MT_file_import(Menu):
         if bpy.app.build_options.alembic:
             self.layout.operator("wm.alembic_import", text="Alembic (.abc)")
         if bpy.app.build_options.usd:
-            self.layout.operator(
-                "wm.usd_import", text="Universal Scene Description (.usd*)")
+            self.layout.operator("wm.usd_import", text="Universal Scene Description (.usd*)")
 
         if bpy.app.build_options.io_gpencil:
             self.layout.operator("wm.grease_pencil_import_svg", text="SVG as Grease Pencil")
@@ -385,8 +398,7 @@ class TOPBAR_MT_file_export(Menu):
         if bpy.app.build_options.alembic:
             self.layout.operator("wm.alembic_export", text="Alembic (.abc)")
         if bpy.app.build_options.usd:
-            self.layout.operator(
-                "wm.usd_export", text="Universal Scene Description (.usd*)")
+            self.layout.operator("wm.usd_export", text="Universal Scene Description (.usd*)")
 
         if bpy.app.build_options.io_gpencil:
             # PUGIXML library dependency.
@@ -701,8 +713,7 @@ class TOPBAR_PT_name(Panel):
                 found = True
         elif space_type == 'NLA_EDITOR':
             layout.label(text="NLA Strip Name")
-            item = next(
-                (strip for strip in context.selected_nla_strips if strip.active), None)
+            item = next((strip for strip in context.selected_nla_strips if strip.active), None)
             if item:
                 row = row_with_icon(layout, 'NLA')
                 row.prop(item, "name", text="")
@@ -744,8 +755,9 @@ class TOPBAR_PT_name_marker(Panel):
     @staticmethod
     def is_using_pose_markers(context):
         sd = context.space_data
-        return (sd.type == 'DOPESHEET_EDITOR' and sd.mode in {'ACTION', 'SHAPEKEY'} and
-                sd.show_pose_markers and sd.action)
+        return (
+            sd.type == 'DOPESHEET_EDITOR' and sd.mode in {'ACTION', 'SHAPEKEY'} and sd.show_pose_markers and sd.action
+        )
 
     @staticmethod
     def get_selected_marker(context):
@@ -849,5 +861,6 @@ classes = (
 
 if __name__ == "__main__":  # only for live edit.
     from bpy.utils import register_class
+
     for cls in classes:
         register_class(cls)
