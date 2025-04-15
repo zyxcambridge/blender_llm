@@ -40,6 +40,17 @@ class TOPBAR_HT_upper_bar(Header):
     def draw_right(self, context):
         layout = self.layout
 
+        # AI Assistant button - make it more prominent and place it at the far right
+        row = layout.row(align=True)
+        row.alignment = 'RIGHT'
+        row.scale_x = 1.8
+        row.scale_y = 1.8
+        row.alert = True  # 使按钮更加醒目
+        props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="AI Assistant", icon='COMMUNITY')
+
+        # Add a separator after the AI Assistant button
+        layout.separator(factor=1.0)
+
         window = context.window
         screen = context.screen
         scene = window.scene
@@ -61,15 +72,6 @@ class TOPBAR_HT_upper_bar(Header):
             new="scene.view_layer_add",
             unlink="scene.view_layer_remove",
         )
-
-        # Add a separator before the AI Assistant button
-        layout.separator(factor=2.0)
-
-        # AI Assistant button - make it more prominent and place it at the right side
-        row = layout.row(align=True)
-        row.scale_x = 1.5
-        row.scale_y = 1.5
-        props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="AI Assistant", icon='COMMUNITY')
 
 
 class TOPBAR_PT_tool_settings_extra(Panel):
