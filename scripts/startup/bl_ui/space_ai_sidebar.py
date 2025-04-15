@@ -83,10 +83,11 @@ class AI_UL_messages(UIList):
 
 # Main panel for the AI Assistant sidebar
 class VIEW3D_PT_ai_assistant(Panel):
-    bl_space_type = 'TOPBAR'
-    bl_region_type = 'HEADER'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "scene"
     bl_label = "AI Assistant"
-    bl_ui_units_x = 30
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout
@@ -99,15 +100,13 @@ class VIEW3D_PT_ai_assistant(Panel):
         if not hasattr(context.scene, "ai_assistant"):
             layout.label(text="AI Assistant not initialized yet.")
             layout.label(text="Please restart Blender.")
+
+            # Try to register the property group
+            row = layout.row()
+            row.operator("ai.initialize", text="Initialize AI Assistant", icon='FILE_REFRESH')
             return
 
         ai_props = context.scene.ai_assistant
-
-        # Keep panel open option
-        row = layout.row()
-        row.prop(ai_props, "keep_open", text="Keep Panel Open")
-
-        layout.separator()
 
         # Mode selection
         box = layout.box()
@@ -119,32 +118,10 @@ class VIEW3D_PT_ai_assistant(Panel):
         row.scale_y = 1.2
         row.prop(ai_props, "mode", expand=True)
 
-        # Chat history
-        box = layout.box()
-        row = box.row()
-        row.label(text="Chat History:", icon='COMMUNITY')
-
-        # Display chat history using UIList
-        box.template_list("AI_UL_messages", "", ai_props, "messages", ai_props, "active_message_index", rows=6)
-
-        # Message input area
-        box = layout.box()
-        row = box.row()
-        row.label(text="Message:", icon='TEXT')
-
-        # Larger input field
-        col = box.column()
-        col.scale_y = 2.0
-        col.prop(ai_props, "message", text="")
-
-        # Send button
-        row = layout.row()
-        row.scale_y = 1.5
-        row.operator("ai.send_message", text="Send", icon='PLAY')
-
-        # Clear chat history button
-        row = layout.row()
-        row.operator("ai.clear_history", text="Clear History", icon='TRASH')
+        # Debug button (only visible in development mode)
+        if bpy.app.debug:
+            row = layout.row()
+            row.operator("ai.debug", text="Debug", icon='CONSOLE')
 
 
 # Import sys for forcing output flush
@@ -260,18 +237,16 @@ class AI_OT_clear_history(bpy.types.Operator):
 
 # Panel for fixed input box for AI Assistant
 class VIEW3D_PT_ai_assistant_input(Panel):
-    bl_space_type = 'TOPBAR'
-    bl_region_type = 'HEADER'
-    bl_label = "AI Assistant Input"
-    bl_ui_units_x = 30
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "scene"
+    bl_label = "Input"
+    bl_parent_id = "VIEW3D_PT_ai_assistant"
 
     def draw(self, context):
-        # Add debug print statements
-        print("\n==== AI Assistant Panel Draw ====")
-        print(f"Context: {context}")
-
-        # Uncomment the line below to use pdb for interactive debugging
-        # import pdb; pdb.set_trace()
+        # Add debug print statements with forced flush
+        print("\n==== AI Assistant Panel Draw ====", flush=True)
+        print(f"Context: {context}", flush=True)
 
         layout = self.layout
 
@@ -279,38 +254,37 @@ class VIEW3D_PT_ai_assistant_input(Panel):
         if not hasattr(context.scene, "ai_assistant"):
             layout.label(text="AI Assistant not initialized yet.")
             layout.label(text="Please restart Blender.")
+
+            # Try to register the property group
+            row = layout.row()
+            row.operator("ai.initialize", text="Initialize AI Assistant", icon='FILE_REFRESH')
             return
 
         ai_props = context.scene.ai_assistant
 
-        # Title with icon
-        row = layout.row()
-        row.label(text="AI Assistant", icon='COMMUNITY')
+        # Create a column that pushes content to the bottom
+        col = layout.column()
+        col.alignment = 'EXPAND'
 
-        # Message input area
-        box = layout.box()
+        # Add spacer to push content to bottom
+        col.separator(factor=4.0)
 
-        # Larger input field
-        col = box.column()
-        col.scale_y = 2.0
-        col.prop(ai_props, "message", text="")
+        # Message input area with larger input field
+        input_col = col.column()
+        input_col.scale_y = 2.0
+        input_col.prop(ai_props, "message", text="")
 
         # Send button
-        row = layout.row()
+        row = col.row()
         row.scale_y = 1.5
         row.operator("ai.send_message", text="Send", icon='PLAY')
 
-        # Debug button (only visible in development mode)
-        if bpy.app.debug:
-            row = layout.row()
-            row.operator("ai.debug", text="Debug", icon='CONSOLE')
 
-
-# Operator to toggle the AI Assistant input panel
+# Operator to toggle the AI Assistant panel
 class AI_OT_quick_input(bpy.types.Operator):
     bl_idname = "ai.quick_input"
     bl_label = "AI Assistant"
-    bl_description = "Toggle AI Assistant input panel"
+    bl_description = "Open AI Assistant panel"
 
     def execute(self, context):
         # Add debug print statements with forced flush
@@ -319,17 +293,74 @@ class AI_OT_quick_input(bpy.types.Operator):
 
         # Check if the property group is registered
         if not hasattr(context.scene, "ai_assistant"):
-            self.report({'ERROR'}, "AI Assistant not initialized yet. Please restart Blender.")
-            return {'CANCELLED'}
+            # Try to initialize the AI Assistant
+            try:
+                bpy.ops.ai.initialize()
+            except Exception as e:
+                self.report({'ERROR'}, f"Failed to initialize AI Assistant: {e}")
+                print(f"Error initializing AI Assistant: {e}", flush=True)
+                return {'CANCELLED'}
 
-        # Toggle the keep_open property to show/hide the panel
-        ai_props = context.scene.ai_assistant
-        ai_props.keep_open = not ai_props.keep_open
-        print(f"Panel keep_open set to: {ai_props.keep_open}", flush=True)
+        # Open the properties panel and navigate to the AI Assistant section
+        for area in context.screen.areas:
+            if area.type == 'PROPERTIES':
+                # Make sure the scene context is active
+                for space in area.spaces:
+                    if space.type == 'PROPERTIES':
+                        space.context = 'SCENE'
+                return {'FINISHED'}
+
+        # If no properties area is found, try to create one
+        # This is a more complex operation and might not always work as expected
+        # For simplicity, we'll just report that the user should open the properties panel
+        self.report({'INFO'}, "Please open the Properties panel to access AI Assistant")
 
         # Call the debug function
         debug_ai_assistant()
 
+        return {'FINISHED'}
+
+
+# Initialize AI Assistant operator
+class AI_OT_initialize(bpy.types.Operator):
+    bl_idname = "ai.initialize"
+    bl_label = "Initialize AI Assistant"
+    bl_description = "Initialize the AI Assistant property group"
+
+    def execute(self, context):
+        print("\n==== Initializing AI Assistant ====", flush=True)
+
+        # Make sure the property class is registered
+        try:
+            if AIAssistantProperties not in bpy.utils.bl_rna_get_subclasses(bpy.types.PropertyGroup):
+                bpy.utils.register_class(AIAssistantProperties)
+                print("Registered AIAssistantProperties class", flush=True)
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to register property class: {e}")
+            print(f"Error registering AIAssistantProperties: {e}", flush=True)
+            return {'CANCELLED'}
+
+        # Register the property group
+        try:
+            if not hasattr(bpy.types.Scene, "ai_assistant"):
+                bpy.types.Scene.ai_assistant = bpy.props.PointerProperty(type=AIAssistantProperties)
+                print("Registered ai_assistant property", flush=True)
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to register property group: {e}")
+            print(f"Error registering ai_assistant property: {e}", flush=True)
+            return {'CANCELLED'}
+
+        # Initialize the property values
+        try:
+            context.scene.ai_assistant.keep_open = True
+            context.scene.ai_assistant.message = ""
+            print("Initialized ai_assistant properties", flush=True)
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to initialize properties: {e}")
+            print(f"Error initializing properties: {e}", flush=True)
+            return {'CANCELLED'}
+
+        self.report({'INFO'}, "AI Assistant initialized successfully")
         return {'FINISHED'}
 
 
@@ -361,6 +392,33 @@ class AI_OT_debug(bpy.types.Operator):
         return {'FINISHED'}
 
 
+# Panel for chat history
+class VIEW3D_PT_ai_assistant_history(Panel):
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "scene"
+    bl_label = "Chat History"
+    bl_parent_id = "VIEW3D_PT_ai_assistant"
+
+    def draw(self, context):
+        layout = self.layout
+
+        # Check if the property group is registered
+        if not hasattr(context.scene, "ai_assistant"):
+            layout.label(text="AI Assistant not initialized yet.")
+            layout.label(text="Please restart Blender.")
+            return
+
+        ai_props = context.scene.ai_assistant
+
+        # Display chat history using UIList
+        layout.template_list("AI_UL_messages", "", ai_props, "messages", ai_props, "active_message_index", rows=10)
+
+        # Clear chat history button
+        row = layout.row()
+        row.operator("ai.clear_history", text="Clear History", icon='TRASH')
+
+
 # List of classes to register
 classes = (
     AIMessageItem,
@@ -368,17 +426,19 @@ classes = (
     # AIAssistantProperties,
     AI_UL_messages,
     VIEW3D_PT_ai_assistant,
+    VIEW3D_PT_ai_assistant_history,
     VIEW3D_PT_ai_assistant_input,
     AI_OT_send_message,
     AI_OT_clear_history,
     AI_OT_quick_input,
+    AI_OT_initialize,
     AI_OT_debug,
 )
 
 
-# Handler to keep the AI Assistant panel open
+# Handler to ensure the AI Assistant is properly initialized
 @bpy.app.handlers.persistent
-def keep_ai_panel_open(dummy):
+def ensure_ai_assistant_initialized(dummy):
     # Make sure we have a valid context
     if not hasattr(bpy, "context") or bpy.context is None:
         print("No valid context in handler", flush=True)
@@ -405,19 +465,7 @@ def keep_ai_panel_open(dummy):
             # If we can't register it now, we'll try again later
             return 0.1
 
-    # Check if the panel should be kept open
-    try:
-        if bpy.context.scene.ai_assistant.keep_open:
-            # Force the panel to stay open by accessing it
-            for window in bpy.context.window_manager.windows:
-                for area in window.screen.areas:
-                    if area.type == 'TOPBAR':
-                        # This will force the panel to stay open
-                        pass
-    except Exception as e:
-        print(f"Error in keep_ai_panel_open handler: {e}", flush=True)
-
-    return 0.1  # Check again in 0.1 seconds
+    return 1.0  # Check again in 1 second
 
 
 def register():
@@ -436,9 +484,9 @@ def register():
         if cls != AIAssistantProperties:  # Skip AIAssistantProperties as it's already registered
             bpy.utils.register_class(cls)
 
-    # Register the handler to keep the panel open
-    if keep_ai_panel_open not in bpy.app.handlers.depsgraph_update_post:
-        bpy.app.handlers.depsgraph_update_post.append(keep_ai_panel_open)
+    # Register the handler to ensure the AI Assistant is properly initialized
+    if ensure_ai_assistant_initialized not in bpy.app.handlers.depsgraph_update_post:
+        bpy.app.handlers.depsgraph_update_post.append(ensure_ai_assistant_initialized)
 
     # Force initialization of the property group
     # This is important to ensure it's available immediately
@@ -458,8 +506,8 @@ def unregister():
     print("Unregistering AI Assistant...", flush=True)
 
     # Unregister the handler
-    if keep_ai_panel_open in bpy.app.handlers.depsgraph_update_post:
-        bpy.app.handlers.depsgraph_update_post.remove(keep_ai_panel_open)
+    if ensure_ai_assistant_initialized in bpy.app.handlers.depsgraph_update_post:
+        bpy.app.handlers.depsgraph_update_post.remove(ensure_ai_assistant_initialized)
 
     # Unregister all classes first
     for cls in reversed(classes):

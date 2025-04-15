@@ -34,15 +34,6 @@ class TOPBAR_HT_upper_bar(Header):
 
         if not screen.show_fullscreen:
             layout.template_ID_tabs(window, "workspace", new="workspace.add", menu="TOPBAR_MT_workspace_menu")
-
-            # Empty space after the + button
-            layout.separator(factor=1.0)
-
-            # AI Assistant button - make it more prominent and place it after the + button
-            row = layout.row(align=True)
-            row.scale_x = 1.5
-            row.scale_y = 1.5
-            props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="AI Assistant", icon='COMMUNITY')
         else:
             layout.operator("screen.back_to_previous", icon='SCREEN_BACK', text="Back to Previous")
 
@@ -70,6 +61,15 @@ class TOPBAR_HT_upper_bar(Header):
             new="scene.view_layer_add",
             unlink="scene.view_layer_remove",
         )
+
+        # Add a separator before the AI Assistant button
+        layout.separator(factor=2.0)
+
+        # AI Assistant button - make it more prominent and place it at the right side
+        row = layout.row(align=True)
+        row.scale_x = 1.5
+        row.scale_y = 1.5
+        props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="AI Assistant", icon='COMMUNITY')
 
 
 class TOPBAR_PT_tool_settings_extra(Panel):
