@@ -300,6 +300,11 @@ class VIEW3D_PT_ai_assistant_input(Panel):
         row.scale_y = 1.5
         row.operator("ai.send_message", text="Send", icon='PLAY')
 
+        # Debug button (only visible in development mode)
+        if bpy.app.debug:
+            row = layout.row()
+            row.operator("ai.debug", text="Debug", icon='CONSOLE')
+
 
 # Operator to toggle the AI Assistant input panel
 class AI_OT_quick_input(bpy.types.Operator):
