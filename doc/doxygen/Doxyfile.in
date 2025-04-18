@@ -1,0 +1,13 @@
+# Doxyfile configuration
+PROJECT_NAME           = "Blender Project"
+OUTPUT_DIRECTORY       = @CMAKE_BINARY_DIR@/doc
+INPUT                  = @CMAKE_SOURCE_DIR@/source
+RECURSIVE              = YES
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+HAVE_DOT               = YES
+CLASS_DIAGRAMS         = YES
+UML_LOOK               = YES
