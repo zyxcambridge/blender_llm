@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
+import sys
 import bpy
 from bpy.types import (
     Panel,
@@ -125,7 +126,6 @@ class VIEW3D_PT_ai_assistant(Panel):
 
 
 # Import sys for forcing output flush
-import sys
 
 
 # Debug function that can be called from the Python console
@@ -144,6 +144,21 @@ def debug_ai_assistant():
     return "Debug information printed to console"
 
 
+# 设置模式操作符
+class AI_OT_set_mode(bpy.types.Operator):
+    bl_idname = "ai.set_mode"
+    bl_label = "Set Mode"
+    bl_description = "Set the AI assistant mode"
+
+    mode: StringProperty(name="Mode", default="AGENT")
+
+    def execute(self, context):
+        context.scene.ai_assistant.mode = self.mode
+        mode_name = "Agent Mode" if self.mode == 'AGENT' else "3D Moder Mode"
+        self.report({'INFO'}, f"Mode set to {mode_name}")
+        return {'FINISHED'}
+
+
 # Operator to send a message to the AI assistant
 class AI_OT_send_message(bpy.types.Operator):
     bl_idname = "ai.send_message"
@@ -151,23 +166,9 @@ class AI_OT_send_message(bpy.types.Operator):
     bl_description = "Send a message to the AI assistant"
 
     def execute(self, context):
-        # Add debug print statements with forced flush
-        print("\n==== AI Assistant Send Message ====", flush=True)
-        print(f"Context: {context}", flush=True)
-
-        # Create a global variable for debugging
-        import builtins
-
-        builtins.ai_debug_context = context
-        builtins.ai_debug_self = self
-        print("Debug variables set: ai_debug_context, ai_debug_self", flush=True)
-
-        # Force flush all output
-        sys.stdout.flush()
-
         # Check if the property group is registered
         if not hasattr(context.scene, "ai_assistant"):
-            self.report({'ERROR'}, "AI Assistant not initialized yet. Please restart Blender.")
+            self.report({'ERROR'}, "3D Moder Copilot not initialized yet. Please restart Blender.")
             return {'CANCELLED'}
 
         ai_props = context.scene.ai_assistant
@@ -175,28 +176,43 @@ class AI_OT_send_message(bpy.types.Operator):
         message = ai_props.message
 
         if not message.strip():
-            self.report({'ERROR'}, "请输入消息")
+            self.report({'ERROR'}, "请输入消息或命令")
             return {'CANCELLED'}
 
         # Add user message to chat history
-        print(f"Adding user message: {message}")
         user_msg = ai_props.messages.add()
         user_msg.text = message
         user_msg.is_user = True
-        print(f"User message added, total messages: {len(ai_props.messages)}")
 
-        # Here you would implement the actual functionality to send the message
-        # to either the agent or chat system and get a response
-
-        # For now, just add a dummy AI response
-        print(f"Adding AI response in mode: {mode}")
-        ai_msg = ai_props.messages.add()
+        # 处理Agent模式下的命令
         if mode == 'AGENT':
-            ai_msg.text = f"Agent收到: {message}"
+            # 处理特定命令
+            if message.startswith('/'):
+                command = message.split()[0][1:]  # 提取命令名称
+
+                # 根据命令类型生成响应
+                if command == 'subdivide':
+                    ai_response = f"Subdivided mesh: Body – {message.split()[1] if len(message.split()) > 1 else '1'} levels complete"
+                elif command == 'auto_uv':
+                    ai_response = "UV Unwrapping applied on 3 mesh islands."
+                else:
+                    ai_response = f"Executed command: {command}"
+            else:
+                ai_response = f"Processing: {message}"
         else:
-            ai_msg.text = f"Chat回复: {message}"
+            # 3D Moder模式下的响应
+            ai_response = f"3D Moder: {message}"
+
+        # 添加AI响应到历史记录
+        ai_msg = ai_props.messages.add()
+        ai_msg.text = ai_response
         ai_msg.is_user = False
-        print(f"AI response added, total messages: {len(ai_props.messages)}")
+
+        # 清空输入框
+        ai_props.message = ""
+
+        self.report({'INFO'}, f"Command processed: {message}")
+        return {'FINISHED'}
 
         # Update the active index to show the latest message
         ai_props.active_message_index = len(ai_props.messages) - 1
@@ -240,44 +256,264 @@ class VIEW3D_PT_ai_assistant_input(Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "scene"
-    bl_label = "Input"
+    bl_label = "3D Moder Copilot"
     bl_parent_id = "VIEW3D_PT_ai_assistant"
+    bl_options = {'INSTANCED'}
+    bl_ui_units_x = 80  # 增加宽度
+    bl_ui_units_y = 60  # 增加高度
 
     def draw(self, context):
-        # Add debug print statements with forced flush
-        print("\n==== AI Assistant Panel Draw ====", flush=True)
-        print(f"Context: {context}", flush=True)
-
         layout = self.layout
 
         # Check if the property group is registered
         if not hasattr(context.scene, "ai_assistant"):
-            layout.label(text="AI Assistant not initialized yet.")
+            layout.label(text="3D Moder Copilot not initialized yet.")
             layout.label(text="Please restart Blender.")
 
             # Try to register the property group
             row = layout.row()
-            row.operator("ai.initialize", text="Initialize AI Assistant", icon='FILE_REFRESH')
+            row.operator("ai.initialize", text="Initialize 3D Moder", icon='FILE_REFRESH')
             return
 
         ai_props = context.scene.ai_assistant
 
-        # Create a column that pushes content to the bottom
-        col = layout.column()
-        col.alignment = 'EXPAND'
+        # 顶部标题栏 - 带有边框的盒子
+        title_box = layout.box()
+        title_row = title_box.row()
+        title_row.scale_y = 1.5
+        title_row.label(text="🧊 3D MODER COPILOT – 建模智能助手", icon='OUTLINER_OB_MESH')
 
-        # Add spacer to push content to bottom
-        col.separator(factor=4.0)
+        if ai_props.mode == 'AGENT':
+            title_row.label(text="（Agent模式）")
+        else:
+            title_row.label(text="（3D Moder模式）")
 
-        # Message input area with larger input field
-        input_col = col.column()
-        input_col.scale_y = 2.0
-        input_col.prop(ai_props, "message", text="")
+        # 模式切换区
+        mode_box = layout.box()
+        mode_row = mode_box.row(align=True)
+        mode_row.scale_y = 1.5
 
-        # Send button
-        row = col.row()
-        row.scale_y = 1.5
-        row.operator("ai.send_message", text="Send", icon='PLAY')
+        # Agent模式按钮
+        if ai_props.mode == 'AGENT':
+            agent_btn = mode_row.operator("ai.set_mode", text="✅ Agent Mode", icon='TOOL_SETTINGS')
+            agent_btn.mode = 'AGENT'
+        else:
+            agent_btn = mode_row.operator("ai.set_mode", text="Agent Mode", icon='TOOL_SETTINGS')
+            agent_btn.mode = 'AGENT'
+
+        mode_row.separator(factor=1.0)
+
+        # 3D Moder模式按钮
+        if ai_props.mode == 'CHAT':
+            moder_btn = mode_row.operator("ai.set_mode", text="✅ 3D Moder Mode", icon='OUTLINER_OB_MESH')
+            moder_btn.mode = 'CHAT'
+        else:
+            moder_btn = mode_row.operator("ai.set_mode", text="3D Moder Mode", icon='OUTLINER_OB_MESH')
+            moder_btn.mode = 'CHAT'
+
+        # Agent模式界面
+        if ai_props.mode == 'AGENT':
+            # 模型预览区
+            preview_box = layout.box()
+            preview_title = preview_box.row()
+            preview_title.scale_y = 1.2
+            preview_title.label(text="🔹 模型预览", icon='SHADING_WIRE')
+
+            # 模型预览图像
+            preview_img = preview_box.row()
+            preview_img.scale_y = 6.0
+            preview_img.alignment = 'CENTER'
+            preview_img.label(text="默认模型加载（静态展示或旋转预览）", icon='OUTLINER_OB_MESH')
+
+            # 操作记录/信息输出区
+            log_box = layout.box()
+            log_title = log_box.row()
+            log_title.scale_y = 1.2
+            log_title.label(text="🔸 操作记录 / 信息输出区", icon='TEXT')
+
+            # 操作记录内容
+            log_content = log_box.box()
+            log_content.scale_y = 1.0
+
+            # 系统消息
+            system_row = log_content.row()
+            system_row.label(text="[System] Loaded default character model.fbx")
+
+            # 用户命令
+            user_row1 = log_content.row()
+            user_row1.label(text="[User] /subdivide 2")
+
+            # AI响应
+            ai_row1 = log_content.row()
+            ai_row1.label(text="[AI] Subdivided mesh: Body – 2 levels complete")
+
+            # 用户命令2
+            user_row2 = log_content.row()
+            user_row2.label(text="[User] /auto_uv")
+
+            # AI响应2
+            ai_row2 = log_content.row()
+            ai_row2.label(text="[AI] UV Unwrapping applied on 3 mesh islands.")
+
+            # 持续追加提示
+            more_row = log_content.row()
+            more_row.label(text="......（持续追加）")
+
+            # 输入栏 + 发送按钮
+            input_box = layout.box()
+            input_title = input_box.row()
+            input_title.scale_y = 1.2
+            input_title.label(text="💬 输入栏 + 发送按钮", icon='CONSOLE')
+
+            # 输入框行
+            input_row = input_box.row()
+
+            # 输入框
+            input_col = input_row.column()
+            input_col.scale_y = 2.0
+            input_col.scale_x = 5.0
+            input_col.prop(ai_props, "message", text="", placeholder="/subdivide 2")
+
+            # 发送按钮
+            send_col = input_row.column()
+            send_col.scale_x = 0.5
+            send_col.scale_y = 2.0
+            send_col.operator("ai.send_message", text="发送 ➤", icon='PLAY')
+
+        # 3D Moder模式界面
+        else:
+            # 双栏布局：左侧功能区，右侧预览区
+            split = layout.split(factor=0.6)
+
+            # 左侧功能面板（深灰底色）
+            left_col = split.column()
+            content_box = left_col.box()
+
+            # 主操作引导
+            title_row = content_box.row()
+            title_row.scale_y = 1.5
+            title_row.label(text="Edit 3D Model with AI", icon='MODIFIER')
+
+            # 副标题
+            subtitle_row = content_box.row()
+            subtitle_row.scale_y = 1.2
+            subtitle_row.label(text="Current Mode: Auto Topology Fix")
+
+            # 符号指令栏
+            cmd_box = content_box.box()
+            cmd_title = cmd_box.row()
+            cmd_title.scale_y = 1.2
+            cmd_title.label(text="Input Commands:", icon='CONSOLE')
+
+            # 指令示例
+            commands = ["# 输入指令...", "@ 调用插件库", "/subdivide 2"]
+
+            for cmd in commands:
+                cmd_row = cmd_box.row()
+                cmd_row.scale_y = 1.2
+                cmd_row.label(text=cmd)
+
+            # AI建议面板
+            ai_box = content_box.box()
+            ai_title = ai_box.row()
+            ai_title.alert = True
+            ai_title.scale_y = 1.2
+            ai_title.label(text="[AI建议] 检测到3处非流形边 → 修复", icon='ERROR')
+
+            # 材质/动画库
+            material_box = content_box.box()
+            material_title = material_box.row()
+            material_title.scale_y = 1.2
+            material_title.label(text="材质库", icon='MATERIAL')
+
+            # 材质球列表
+            material_row = material_box.row()
+            material_row.scale_y = 1.5
+            material_row.label(text="金属", icon='MATERIAL')
+            material_row.label(text="塑料", icon='MATERIAL')
+            material_row.label(text="玻璃", icon='MATERIAL')
+
+            # 右侧预览窗口（黑色背景）
+            right_col = split.column()
+            preview_box = right_col.box()
+
+            # 实时渲染区
+            preview_title = preview_box.row()
+            preview_title.scale_y = 1.2
+            preview_title.label(text="3D Preview", icon='SHADING_WIRE')
+
+            # 工具栏悬浮层 - 顶部
+            tools_top = preview_box.row(align=True)
+            tools_top.alignment = 'CENTER'
+            tools_top.scale_y = 1.0
+            tools_top.label(text="", icon='ORIENTATION_VIEW')
+            tools_top.label(text="", icon='SHADING_SOLID')
+            tools_top.label(text="", icon='CAMERA_DATA')
+
+            # 模型预览图像
+            preview_img = preview_box.row()
+            preview_img.scale_y = 8.0
+            preview_img.alignment = 'CENTER'
+            preview_img.label(text="[可旋转模型]", icon='OUTLINER_OB_MESH')
+
+            # 工具栏悬浮层 - 底部
+            tools_bottom = preview_box.row(align=True)
+            tools_bottom.alignment = 'CENTER'
+            tools_bottom.scale_y = 1.0
+            tools_bottom.label(text="", icon='VERTEXSEL')
+            tools_bottom.label(text="", icon='EDGESEL')
+            tools_bottom.label(text="", icon='FACESEL')
+
+            # 悬浮工具提示
+            tools_row = preview_box.row()
+            tools_row.alignment = 'CENTER'
+            tools_row.label(text="右键唤出工具环", icon='TOOL_SETTINGS')
+
+            # 视图控制提示
+            view_row = preview_box.row()
+            view_row.alignment = 'CENTER'
+            view_row.label(text="旋转: 方向键 | 缩放: 滚轮")
+
+            # 底部状态栏（半透明黑色底栏）
+            footer_box = layout.box()
+            footer_row = footer_box.row()
+
+            # 左侧功能区
+            left_footer = footer_row.row()
+            left_footer.alignment = 'LEFT'
+            left_footer.label(text="3D Assets: 12 | Textures: 24", icon='OUTLINER_OB_MESH')
+
+            # Add Context按钮
+            add_context_btn = left_footer.operator("wm.context_toggle", text="Add Context...", icon='ADD')
+
+            # 中间文件信息（高亮显示）
+            middle_footer = footer_row.row()
+            middle_footer.alignment = 'CENTER'
+            middle_footer.alert = True  # 高亮显示
+            middle_footer.label(text="character.fbx > Mesh[Body]")
+
+            # 右侧引擎标识
+            right_footer = footer_row.row()
+            right_footer.alignment = 'RIGHT'
+            right_footer.label(text="NVIDIA Omniverse AI Engine v2.1", icon='GPU')
+
+            # 消息输入区 - 完整铺满整个程序
+            input_box = layout.box()
+
+            # 输入框行
+            input_row = input_box.row()
+
+            # 输入框 - 大尺寸
+            input_col = input_row.column()
+            input_col.scale_y = 3.0  # 增加高度
+            input_col.scale_x = 5.0  # 增加宽度
+            input_col.prop(ai_props, "message", text="", placeholder="Type a message or /subdivide, @")
+
+            # 发送按钮
+            send_col = input_row.column()
+            send_col.scale_x = 0.2
+            send_col.scale_y = 3.0  # 增加高度与输入框一致
+            send_col.operator("ai.send_message", text="", icon='PLAY')
 
 
 # Operator to toggle the AI Assistant panel
@@ -428,6 +664,7 @@ classes = (
     VIEW3D_PT_ai_assistant,
     VIEW3D_PT_ai_assistant_history,
     VIEW3D_PT_ai_assistant_input,
+    AI_OT_set_mode,
     AI_OT_send_message,
     AI_OT_clear_history,
     AI_OT_quick_input,
