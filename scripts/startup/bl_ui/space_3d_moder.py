@@ -180,9 +180,9 @@ class VIEW3D_PT_3d_moder_copilot(Panel):
 
         # 发送按钮
         send_col = input_row.column()
-        send_col.scale_x = 0.2
+        send_col.scale_x = 0.8  # 增加宽度确保按钮完全显示
         send_col.scale_y = 6.0  # 与输入框高度一致
-        send_col.operator("moco.send_command", text="", icon='PLAY')
+        send_col.operator("moco.send_command", text="发送", icon='PLAY')
 
         # 再添加一个输入框行以增加总体高度
         input_row2 = input_box.row()

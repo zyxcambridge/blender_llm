@@ -192,7 +192,9 @@ class AI_OT_send_message(bpy.types.Operator):
 
                 # 根据命令类型生成响应
                 if command == 'subdivide':
-                    ai_response = f"Subdivided mesh: Body – {message.split()[1] if len(message.split()) > 1 else '1'} levels complete"
+                    ai_response = f"Subdivided mesh: Body – {
+                        message.split()[1] if len(
+                            message.split()) > 1 else '1'} levels complete"
                 elif command == 'auto_uv':
                     ai_response = "UV Unwrapping applied on 3 mesh islands."
                 else:
@@ -376,7 +378,7 @@ class VIEW3D_PT_ai_assistant_input(Panel):
 
             # 发送按钮
             send_col = input_row.column()
-            send_col.scale_x = 0.5
+            send_col.scale_x = 1.0  # 增加宽度确保按钮完全显示
             send_col.scale_y = 2.0
             send_col.operator("ai.send_message", text="发送 ➤", icon='PLAY')
 
@@ -511,9 +513,9 @@ class VIEW3D_PT_ai_assistant_input(Panel):
 
             # 发送按钮
             send_col = input_row.column()
-            send_col.scale_x = 0.2
+            send_col.scale_x = 0.8  # 增加宽度确保按钮完全显示
             send_col.scale_y = 3.0  # 增加高度与输入框一致
-            send_col.operator("ai.send_message", text="", icon='PLAY')
+            send_col.operator("ai.send_message", text="发送", icon='PLAY')
 
 
 # Operator to toggle the AI Assistant panel
