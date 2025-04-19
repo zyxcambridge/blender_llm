@@ -192,9 +192,7 @@ class AI_OT_send_message(bpy.types.Operator):
 
                 # 根据命令类型生成响应
                 if command == 'subdivide':
-                    ai_response = f"Subdivided mesh: Body – {
-                        message.split()[1] if len(
-                            message.split()) > 1 else '1'} levels complete"
+                    ai_response = f"Subdivided mesh: Body – {message.split()[1] if len(message.split()) > 1 else '1'} levels complete"
                 elif command == 'auto_uv':
                     ai_response = "UV Unwrapping applied on 3 mesh islands."
                 else:
@@ -374,7 +372,12 @@ class VIEW3D_PT_ai_assistant_input(Panel):
             input_col = input_row.column()
             input_col.scale_y = 2.0
             input_col.scale_x = 5.0
-            input_col.prop(ai_props, "message", text="", placeholder="/subdivide 2")
+            input_col.prop(
+                ai_props,
+                "message",
+                text="",
+                placeholder="设计一个鼻炎吸鼻器：三部分组成，一个盒子是洗鼻器的主体，包含电机等，可拆卸的部分1，能加入0.9%的生理盐水胶囊，想转子弹一样装上；可拆卸的部分2 ，带走废液，倒掉；像卸载子弹一样卸载；",
+            )
 
             # 发送按钮
             send_col = input_row.column()
