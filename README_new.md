@@ -1,6 +1,6 @@
 # 3D Moder Copilot
 
-![3D Moder Copilot](https://placehold.co/1200x400/252525/00a8ff?text=3D+Moder+Copilot)
+[![3D Moder Copilot 演示](images/video-poster.jpg)](https://zyxcambridge.github.io/blender_llm/)
 
 ## AI-Powered Assistant for Blender
 
@@ -36,11 +36,18 @@ make -j16
 3. Select between "Agent Mode" or "3D Moder Mode"
 4. Type commands in the input box or use voice control
 
+### 🎥 Demo
+
+**[点击查看在线演示](https://zyxcambridge.github.io/blender_llm/)** - 访问我们的网站，观看3D Moder Copilot的功能演示视频。
+
+**[下载演示视频](https://github.com/zyxcambridge/blender_llm/raw/gh-pages/videos/0a788f187e6d6e03ccf73c19d2612b.mp4)** - 直接下载演示视频文件。
+
 ### 🔗 Links
 
 - [Project Website](https://zyxcambridge.github.io/blender_llm/)
 - [Documentation](https://github.com/zyxcambridge/blender_llm/wiki)
 - [Issue Tracker](https://github.com/zyxcambridge/blender_llm/issues)
+- [Discord Community](https://discord.gg/ZhNHbYaz)
 
 ### 🤝 Contributing
 

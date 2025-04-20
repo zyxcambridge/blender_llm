@@ -22,7 +22,8 @@
                 <li><a href="#features">Features</a></li>
                 <li><a href="#installation">Installation</a></li>
                 <li><a href="#usage">Usage</a></li>
-                <li><a href="#demo">Resources</a></li>
+                <li><a href="#video-demo">Demo</a></li>
+                <li><a href="#resources">Resources</a></li>
                 <li><a href="https://github.com/zyxcambridge/blender_llm" target="_blank">GitHub <i class="fab fa-github"></i></a></li>
                 <li><a href="https://discord.gg/ZhNHbYaz" target="_blank">Discord <i class="fab fa-discord"></i></a></li>
                 <li class="fork-nav"><a href="https://github.com/zyxcambridge/blender_llm/fork" target="_blank"><i class="fas fa-code-branch"></i> Fork Project</a></li>
@@ -42,7 +43,13 @@
                 </div>
             </div>
             <div class="hero-image">
-                <img src="images/hero-image.png" alt="3D Moder Copilot Interface" onerror="this.src='https://placehold.co/600x400/252525/CCCCCC?text=3D+Moder+Copilot'">
+                <!-- 视频播放器 -->
+                <div class="hero-video-container">
+                    <video controls autoplay muted loop poster="images/video-poster.jpg">
+                        <source src="videos/0a788f187e6d6e03ccf73c19d2612b.mp4" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
             </div>
         </div>
     </section>
@@ -202,7 +209,21 @@ scripts/startup/bl_ui/space_3d_moder.py</code></pre>
         </div>
     </section>
 
-    <section id="demo" class="bg-dark">
+    <section id="video-demo" class="bg-dark">
+        <div class="container">
+            <h2>3D Moder Copilot Demo</h2>
+            <div class="video-container">
+                <!-- 视频播放器 -->
+                <video id="demo-video" controls width="100%" poster="images/video-poster.jpg">
+                    <source src="videos/0a788f187e6d6e03ccf73c19d2612b.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            <p class="demo-caption">Watch 3D Moder Copilot in action, demonstrating the AI-powered interface for Blender. This video showcases the natural language control, voice commands, and intelligent 3D modeling assistance.</p>
+        </div>
+    </section>
+
+    <section id="resources" class="bg-light">
         <div class="container">
             <h2>Technical Resources</h2>
             <div class="resources-grid">
@@ -314,6 +335,74 @@ scripts/startup/bl_ui/space_3d_moder.py</code></pre>
                     behavior: 'smooth'
                 });
             });
+        });
+
+        // 确保视频自动播放
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取Hero部分的视频
+            const heroVideo = document.querySelector('.hero-video-container video');
+
+            // 尝试播放视频
+            if (heroVideo) {
+                // 添加加载事件监听器
+                heroVideo.addEventListener('loadeddata', function() {
+                    // 尝试播放视频
+                    const playPromise = heroVideo.play();
+
+                    // 处理播放承诺
+                    if (playPromise !== undefined) {
+                        playPromise.then(_ => {
+                            // 自动播放成功
+                            console.log('自动播放成功');
+                        })
+                        .catch(error => {
+                            // 自动播放失败，可能是浏览器策略阻止了自动播放
+                            console.log('自动播放失败:', error);
+
+                            // 添加点击事件监听器，允许用户点击页面任何地方开始播放
+                            document.addEventListener('click', function startPlayback() {
+                                heroVideo.play();
+                                // 移除事件监听器，避免重复触发
+                                document.removeEventListener('click', startPlayback);
+                            }, { once: true });
+                        });
+                    }
+                });
+
+                // 添加视频结束事件监听器
+                heroVideo.addEventListener('ended', function() {
+                    // 视频播放结束后，重新播放
+                    heroVideo.currentTime = 0;
+                    heroVideo.play();
+                });
+            }
+
+            // 处理演示部分的视频
+            const demoVideo = document.getElementById('demo-video');
+            if (demoVideo) {
+                // 创建交叉观察器，当视频进入视口时自动播放
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            // 视频进入视口，尝试播放
+                            const playPromise = demoVideo.play();
+
+                            if (playPromise !== undefined) {
+                                playPromise.catch(error => {
+                                    // 自动播放失败，可能是浏览器策略阻止了自动播放
+                                    console.log('演示视频自动播放失败:', error);
+                                });
+                            }
+
+                            // 一旦视频开始播放，停止观察
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                }, { threshold: 0.5 }); // 当至少50%的视频可见时触发
+
+                // 开始观察演示视频
+                observer.observe(demoVideo);
+            }
         });
     </script>
 </body>
