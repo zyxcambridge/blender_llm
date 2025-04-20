@@ -6,7 +6,7 @@ set -e
 # 创建一个临时目录来存储 GitHub Pages 文件
 echo "Creating temporary directory..."
 mkdir -p gh-pages-temp
-cp -r index.html styles.css images .nojekyll 404.html robots.txt sitemap.xml favicon.ico gh-pages-temp/
+cp -r index.html styles.css images videos .nojekyll 404.html robots.txt sitemap.xml favicon.ico gh-pages-temp/
 # 如果您有自定义域名，取消下面这行的注释并重命名文件
 # cp CNAME.example gh-pages-temp/CNAME
 
