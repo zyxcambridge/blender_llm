@@ -1,186 +1,58 @@
-<!--
-Keep this document short & concise,
-linking to external resources instead of including content in-line.
-See 'release/text/readme.html' for the end user read-me.
--->
+# 3D Moder Copilot
 
-# Blender AI 助手架构分析
+[![3D Moder Copilot 演示](images/video-poster.jpg)](https://zyxcambridge.github.io/blender_llm/)
 
-## 1. 整体架构
+## AI-Powered Assistant for Blender
 
-```
-+------------------------------------------+
-|              Blender UI 层               |
-|  +--------------+    +----------------+ |
-|  | AI Assistant |    | 3D Moder Mode | |
-|  | (Agent Mode) |    | (建模助手)     | |
-|  +--------------+    +----------------+ |
-+------------------------------------------+
-              |                |
-              v                v
-+------------------------------------------+
-|            消息处理与分发层              |
-|  +----------------+  +----------------+  |
-|  | 命令解析器     |  | 消息历史管理   |  |
-|  +----------------+  +----------------+  |
-+------------------------------------------+
-              |                |
-              v                v
-+------------------------------------------+
-|              核心功能层                  |
-|  +----------------+  +----------------+  |
-|  | AI Agent 引擎  |  | 3D建模操作引擎 |  |
-|  +----------------+  +----------------+  |
-+------------------------------------------+
-              |                |
-              v                v
-+------------------------------------------+
-|            Blender API 集成层            |
-|  +----------------+  +----------------+  |
-|  | Python API     |  | C/C++ 底层API  |  |
-|  +----------------+  +----------------+  |
-+------------------------------------------+
+3D Moder Copilot is an innovative AI assistant that seamlessly integrates with Blender, providing intelligent assistance for 3D modeling, animation, and rendering tasks. Built on Claude 3.7 Sonnet by Anthropic, this tool understands natural language commands and translates them into precise Blender operations.
+
+### 🌟 Key Features
+
+- **Natural Language Control**: Control Blender using conversational commands
+- **Auto Mesh Optimization**: Automatically detect and fix topology issues
+- **Material Generation**: Generate complex materials with simple text descriptions
+- **Rigging Assistance**: AI-guided bone placement and weight painting
+- **3D Model Import**: Import and optimize models from various formats
+- **Voice Control**: Hands-free modeling experience
+
+### 🚀 Getting Started
+
+```bash
+# Clone the repository
+git clone https://github.com/zyxcambridge/blender_llm.git
+
+# Build Blender with the plugin
+cd blender_llm
+make -j16
+
+# Run Blender with 3D Moder Copilot
+./build_darwin/bin/Blender.app/Contents/MacOS/Blender
 ```
 
-<video controls src="0a788f187e6d6e03ccf73c19d2612b.mp4" title="Title"></video>
-## 2. 核心组件分析
+### 📖 Usage
 
-### 2.1 UI 层组件
+1. Launch Blender with the 3D Moder Copilot plugin
+2. Click on the "3D MODER COPILOT" button in the top-right corner
+3. Select between "Agent Mode" or "3D Moder Mode"
+4. Type commands in the input box or use voice control
 
-#### AI Assistant (Agent Mode)
-- **实现文件**: `scripts/startup/bl_ui/space_ai_sidebar.py`
-- **主要类**:
-  - `VIEW3D_PT_ai_assistant`: 主面板类
-  - `AIAssistantProperties`: 属性存储类
-  - `AIMessageItem`: 消息项类
-  - `AI_UL_messages`: 消息列表UI类
-  - `AI_OT_send_message`: 发送消息操作类
+### 🎥 Demo
 
-#### 3D Moder Copilot
-- **实现文件**: `scripts/startup/bl_ui/space_3d_moder.py`
-- **主要类**:
-  - `VIEW3D_PT_3d_moder_copilot`: 主面板类
-  - `MoCoProperties`: 属性存储类
-  - `MOCO_OT_send_command`: 发送命令操作类
+**[点击查看在线演示](https://zyxcambridge.github.io/blender_llm/)** - 访问我们的网站，观看3D Moder Copilot的功能演示视频。
 
-### 2.2 消息处理层
+**[下载演示视频](https://github.com/zyxcambridge/blender_llm/raw/gh-pages/videos/0a788f187e6d6e03ccf73c19d2612b.mp4)** - 直接下载演示视频文件。
 
-- **命令解析**: 处理以 `/` 开头的特殊命令
-- **消息历史管理**: 通过 `CollectionProperty` 存储消息历史
-- **模式切换**: 在 Agent 模式和 3D Moder 模式之间切换
+### 🔗 Links
 
-### 2.3 核心功能层
+- [Project Website](https://zyxcambridge.github.io/blender_llm/)
+- [Documentation](https://github.com/zyxcambridge/blender_llm/wiki)
+- [Issue Tracker](https://github.com/zyxcambridge/blender_llm/issues)
+- [Discord Community](https://discord.gg/ZhNHbYaz)
 
-#### AI Agent 引擎
-- 处理自然语言指令
-- 执行通用AI助手功能
-- 提供对话式交互
+### 🤝 Contributing
 
-#### 3D建模操作引擎
-- 处理3D模型导入/导出
-- 执行模型优化操作
-- 提供UV展开、材质应用等功能
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 3. 初始化流程
+### 📄 License
 
-1. **注册属性组**:
-   - `AIAssistantProperties` 注册到 `bpy.types.Scene`
-   - `MoCoProperties` 注册到 `bpy.types.Scene`
-
-2. **初始化操作**:
-   - `AI_OT_initialize`: 初始化AI助手
-   - `MOCO_OT_initialize`: 初始化3D Moder
-
-3. **面板注册**:
-   - 将面板类注册到Blender UI系统
-   - 设置默认属性值
-
-## 4. 消息处理流程
-
-1. **用户输入**:
-   - 用户在输入框中输入消息或命令
-   - 点击发送按钮触发处理
-
-2. **命令解析**:
-   - 检查是否为特殊命令（以 `/` 开头）
-   - 如果是命令，则解析并执行相应操作
-   - 如果是普通消息，则传递给AI处理
-
-3. **响应生成**:
-   - AI生成响应或执行命令后的结果
-   - 将响应添加到消息历史中
-   - 更新UI显示
-
-## 5. 文件结构
-
-```
-scripts/startup/bl_ui/
-  ├── space_ai_sidebar.py  # AI Assistant实现
-  └── space_3d_moder.py    # 3D Moder实现
-```
-
-## 6. 入口点分析
-
-主要入口点在Blender启动时注册的UI面板和操作类:
-
-1. **UI面板注册**:
-   - `VIEW3D_PT_ai_assistant`
-   - `VIEW3D_PT_3d_moder_copilot`
-
-2. **操作类注册**:
-   - `AI_OT_send_message`
-   - `MOCO_OT_send_command`
-
-3. **初始化操作**:
-   - `AI_OT_initialize`
-   - `MOCO_OT_initialize`
-
-## 7. 服务初始化分析
-
-从代码分析来看，AI助手服务初始化主要包括:
-
-1. **属性组初始化**:
-   - 创建消息历史存储
-   - 设置默认模式
-   - 初始化UI状态
-
-2. **操作类注册**:
-   - 注册消息发送操作
-   - 注册命令执行操作
-   - 注册模式切换操作
-
-3. **UI组件初始化**:
-   - 创建消息列表
-   - 创建输入区域
-   - 创建模式切换按钮
-
-## 8. 总结
-
-Blender AI助手采用了模块化的架构设计，主要分为Agent模式和3D Moder模式两个主要功能模块。系统通过Blender的属性系统和操作类机制，实现了AI助手的核心功能，包括消息处理、命令执行和UI交互。
-
-整个系统的入口点是UI面板的注册和初始化，通过Blender的插件机制集成到主界面中。服务初始化主要包括属性组、操作类和UI组件的初始化，为用户提供了直观的交互界面和强大的AI辅助功能。
-
-
-Project Pages
--------------
-
-- [Main Website](http://www.blender.org)
-- [Reference Manual](https://docs.blender.org/manual/en/latest/index.html)
-- [User Community](https://www.blender.org/community/)
-
-Development
------------
-
-- [Build Instructions](https://developer.blender.org/docs/handbook/building_blender/)
-- [Code Review & Bug Tracker](https://projects.blender.org)
-- [Developer Forum](https://devtalk.blender.org)
-- [Developer Documentation](https://developer.blender.org/docs/)
-
-
-License
--------
-
-Blender as a whole is licensed under the GNU General Public License, Version 3.
-Individual files may have a different, but compatible license.
-
-See [blender.org/about/license](https://www.blender.org/about/license) for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
