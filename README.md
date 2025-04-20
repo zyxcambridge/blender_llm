@@ -42,8 +42,7 @@ See 'release/text/readme.html' for the end user read-me.
 +------------------------------------------+
 ```
 
-![alt text](image-1.png)
-
+<video controls src="0a788f187e6d6e03ccf73c19d2612b.mp4" title="Title"></video>
 ## 2. 核心组件分析
 
 ### 2.1 UI 层组件

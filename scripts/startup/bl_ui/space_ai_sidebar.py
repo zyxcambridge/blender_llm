@@ -475,21 +475,8 @@ class VIEW3D_PT_ai_assistant_input(Panel):
                     else:
                         msg_row.label(text=f"[AI] {msg.text[:60]}{'...' if len(msg.text) > 60 else ''}")
             else:
-                # 如果没有历史消息，显示默认内容
-                system_row = log_content.row()
-                system_row.label(text="[System] Loaded default character model.fbx")
-
-                # 用户命令
-                user_row1 = log_content.row()
-                user_row1.label(text="[User] /subdivide 2")
-
-                # AI响应
-                ai_row1 = log_content.row()
-                ai_row1.label(text="[AI] Subdivided mesh: Body – 2 levels complete")
-
-                # 持续追加提示
-                more_row = log_content.row()
-                more_row.label(text="......（持续追加）")
+                # 如果没有历史消息，不显示任何默认内容
+                pass
 
             # 输入栏 + 发送按钮
             input_box = layout.box()
@@ -905,21 +892,8 @@ class VIEW3D_PT_ai_assistant_input(Panel):
                     else:
                         msg_row.label(text=f"[AI] {msg.text[:60]}{'...' if len(msg.text) > 60 else ''}")
             else:
-                # 如果没有历史消息，显示默认内容
-                system_row = log_content.row()
-                system_row.label(text="[System] Loaded default character model.fbx")
-
-                # 用户命令
-                user_row1 = log_content.row()
-                user_row1.label(text="[User] /subdivide 2")
-
-                # AI响应
-                ai_row1 = log_content.row()
-                ai_row1.label(text="[AI] Subdivided mesh: Body – 2 levels complete")
-
-                # 持续追加提示
-                more_row = log_content.row()
-                more_row.label(text="......（持续追加）")
+                # 如果没有历史消息，不显示任何默认内容
+                pass
 
             # 输入栏 + 发送按钮
             input_box = layout.box()
