@@ -7,13 +7,11 @@ make -j16 && /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Cont
 
 /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Contents/MacOS/Blender
 
-
-AI assistant 去掉3d moder model ，只保留agent model
-
+程序一打开 ， Blender AI助手 的面板就是 打开的，且 始终在前端显示，一直显示再前端，任何操都不会隐藏 这个面板
 
 
-AI assistant 点开后的界面优化： 只要4部分，
-1. 标题： 保留AI ASSISTANT-智能助手
+Blender AI助手 点开后的界面优化： 只要3部分，
+1. 标题： 保留Blender AI助手-智能助手
 2. 用户需求记录区：记录多次请求的记录；保留 操作记录/信息输出区
 3. 用户需求输入文本区，生成 执行blender python脚本 按钮；保留 输入栏+发送按钮
 多余的代码全部删除
@@ -24,18 +22,20 @@ AI assistant 点开后的界面优化： 只要4部分，
 ai_gemini_integration.py  generate_blender_code 生成的代码有错，保存为 固定的文件名字；打印 这个文件里的内容；
 
 
-点击 AI assistant 增加一个按钮 ，用户执行这个按钮，ai_gemini_integration.py  generate_blender_code 生成的代码有错，保存为 固定的文件名字；
+点击 Blender AI助手 增加一个按钮 ，用户执行这个按钮，ai_gemini_integration.py  generate_blender_code 生成的代码有错，保存为 固定的文件名字；
 就会执行这固定的文件名字；
 
 
 
-点击 AI assistant  后， 下拉框agent模式要一直显示界面上，能够让用户持续输入自己想要对产生的模型的修改；
-只有再次点击 AI assistant 后 下拉框agent模式才会隐藏；
-代码修改完成后，你写一个单元测试，你检查一下，用户是否可以连续输入，不用重复点击 AI assistant ；
+点击 Blender AI助手  后， 下拉框agent模式要一直显示界面上，能够让用户持续输入自己想要对产生的模型的修改；
+只有再次点击 Blender AI助手 后 下拉框agent模式才会隐藏；
+代码修改完成后，你写一个单元测试，你检查一下，用户是否可以连续输入，不用重复点击 Blender AI助手 ；
+在blender中要让一个面板始终在前端显示，可以尝试一下方法。一检查面板锁定选项有些面板有锁定选项，通常在面板的右上角有一个图钉图标点击这个图标可以锁定面板，使其不会被其他操作隐藏。二使用Python脚本如果有编程能力，你可以编写一个简单的blender Python脚本，通过脚本来控制面板的显示和位置。
+
+程序一打开 ， Blender AI助手 的面板就是 打开的，且 始终在前端显示，一直显示再前端，任何操都不会隐藏 这个面板
 
 
-
-点击 AI assistant  后，下拉框agent模式 ，保证下拉框agent模式 的宽度是固定的，长度是可变的；
+点击 Blender AI助手  后，下拉框agent模式 ，保证下拉框agent模式 的宽度是固定的，长度是可变的；
 并且下拉框agent模式 ，的长度是根据用户输入的内容的长度来动态变化的；
 
 
@@ -100,7 +100,7 @@ log 打印出来了，但是没有 实现类似人的鼠标点击，在blender�
 
 
 
-AI assistant 按钮 ，打开程序时，就一直显示在哪里，点击后，下拉框一直显示，点击发送后，依然显示，现在是隐藏了；点击发送按钮后，AI assistant 按钮 ，下拉框一直保持在界面上，并且能一直显示；
+Blender AI助手 按钮 ，打开程序时，就一直显示在哪里，点击后，下拉框一直显示，点击发送后，依然显示，现在是隐藏了；点击发送按钮后，Blender AI助手 按钮 ，下拉框一直保持在界面上，并且能一直显示；
 
 
 

@@ -40,39 +40,30 @@ class TOPBAR_HT_upper_bar(Header):
     def draw_right(self, context):
         layout = self.layout
 
-        # AI Assistant button - make it more prominent and place it at the far right
         row = layout.row(align=True)
         row.alignment = 'RIGHT'
         row.scale_x = 1.8
         row.scale_y = 1.8
-        row.alert = True  # 使按钮更加醒目
+        row.alert = True
 
-        # 检查AI assistant属性是否已初始化
         if hasattr(context.scene, "ai_assistant"):
-            # 根据keep_open属性决定是否显示面板
             if context.scene.ai_assistant.keep_open:
-                # 如果面板已经打开，点击按钮将关闭面板
-                props = row.operator("ai.toggle_panel", text="AI Assistant", icon='COMMUNITY')
+                props = row.operator("ai.toggle_panel", text="Blender AI助手", icon='COMMUNITY')
             else:
-                # 如果面板未打开，点击按钮将打开面板
-                props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="AI Assistant", icon='COMMUNITY')
+                props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="Blender AI助手", icon='COMMUNITY')
         else:
-            # 如果尚未初始化，使用默认行为
-            props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="AI Assistant", icon='COMMUNITY')
+            props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="Blender AI助手", icon='COMMUNITY')
 
-        # Add a separator after the AI Assistant button
         layout.separator(factor=1.0)
 
         window = context.window
         screen = context.screen
         scene = window.scene
 
-        # If statusbar is hidden, still show messages at the top
         if not screen.show_statusbar:
             layout.template_reports_banner()
             layout.template_running_jobs()
 
-        # Active workspace view-layer is retrieved through window, not through workspace.
         layout.template_ID(window, "scene", new="scene.new", unlink="scene.delete")
 
         row = layout.row(align=True)
@@ -87,10 +78,6 @@ class TOPBAR_HT_upper_bar(Header):
 
 
 class TOPBAR_PT_tool_settings_extra(Panel):
-    """
-    Popover panel for adding extra options that don't fit in the tool settings header
-    """
-
     bl_idname = "TOPBAR_PT_tool_settings_extra"
     bl_region_type = 'HEADER'
     bl_space_type = 'TOPBAR'
@@ -102,14 +89,12 @@ class TOPBAR_PT_tool_settings_extra(Panel):
 
         layout = self.layout
 
-        # Get the active tool
         space_type, mode = ToolSelectPanelHelper._tool_key_from_context(context)
         cls = ToolSelectPanelHelper._tool_class_from_space_type(space_type)
         item, tool, _ = cls._tool_get_active(context, space_type, mode, with_icon=True)
         if item is None:
             return
 
-        # Draw the extra settings
         item.draw_settings(context, layout, tool, extra=True)
 
 
@@ -138,7 +123,6 @@ class TOPBAR_MT_editor_menus(Menu):
     def draw(self, context):
         layout = self.layout
 
-        # Allow calling this menu directly (this might not be a header area).
         if getattr(context.area, "show_menus", False):
             layout.menu("TOPBAR_MT_blender", text="", icon='BLENDER')
         else:
