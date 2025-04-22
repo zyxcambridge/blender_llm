@@ -46,7 +46,19 @@ class TOPBAR_HT_upper_bar(Header):
         row.scale_x = 1.8
         row.scale_y = 1.8
         row.alert = True  # 使按钮更加醒目
-        props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="AI Assistant", icon='COMMUNITY')
+
+        # 检查AI assistant属性是否已初始化
+        if hasattr(context.scene, "ai_assistant"):
+            # 根据keep_open属性决定是否显示面板
+            if context.scene.ai_assistant.keep_open:
+                # 如果面板已经打开，点击按钮将关闭面板
+                props = row.operator("ai.toggle_panel", text="AI Assistant", icon='COMMUNITY')
+            else:
+                # 如果面板未打开，点击按钮将打开面板
+                props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="AI Assistant", icon='COMMUNITY')
+        else:
+            # 如果尚未初始化，使用默认行为
+            props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="AI Assistant", icon='COMMUNITY')
 
         # Add a separator after the AI Assistant button
         layout.separator(factor=1.0)

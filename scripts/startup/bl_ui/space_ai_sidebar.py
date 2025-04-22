@@ -4,6 +4,7 @@
 
 import sys
 import os
+import json
 import bpy
 from bpy.types import (
     Panel,
@@ -17,6 +18,34 @@ from bpy.props import (
     IntProperty,
     BoolProperty,
 )
+
+
+# 加载配置文件
+def load_config():
+    """从JSON配置文件加载设置"""
+    config_path = os.path.join(os.path.dirname(__file__), "ai_assistant_config.json")
+    default_config = {
+        "default_prompts": {
+            "cartoon_character": "为一个名为「小兔子」的卡通角色创建完整3D模型...",
+            "placeholder_short": "为一个名为「小兔子」的卡通角色创建完整3D模型，包含头部、耳朵、眼睛、嘴巴、手臂、腿部和尾巴等结构...",
+            "chat_mode": "Type a message or /subdivide, @",
+        }
+    }
+
+    try:
+        if os.path.exists(config_path):
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        else:
+            print(f"配置文件不存在: {config_path}，使用默认配置", flush=True)
+            return default_config
+    except Exception as e:
+        print(f"加载配置文件出错: {e}，使用默认配置", flush=True)
+        return default_config
+
+
+# 全局配置变量
+CONFIG = load_config()
 
 
 # Message item for chat history
@@ -35,16 +64,7 @@ class AIMessageItem(PropertyGroup):
 
 # Property group to store AI assistant settings
 class AIAssistantProperties(PropertyGroup):
-    mode: EnumProperty(
-        name="Mode",
-        description="Select the AI assistant mode",
-        items=[
-            ('AGENT', "Agent", "Use AI as an agent that can perform tasks"),
-            ('CHAT', "Chat", "Use AI as a chat assistant for conversations"),
-        ],
-        default='AGENT',
-    )
-
+    # 移除模式切换功能，只保留Agent模式
     message: StringProperty(
         name="Message",
         description="Message to send to the AI assistant",
@@ -66,6 +86,13 @@ class AIAssistantProperties(PropertyGroup):
         name="Keep Panel Open",
         description="Keep the AI Assistant panel open",
         default=False,
+    )
+
+    # 添加一个隐藏的模式属性，始终为'AGENT'，用于兼容现有代码
+    mode: StringProperty(
+        name="Mode",
+        description="AI Assistant mode (always AGENT)",
+        default="AGENT",
     )
 
 
@@ -90,6 +117,8 @@ class VIEW3D_PT_ai_assistant(Panel):
     bl_context = "scene"
     bl_label = "AI Assistant"
     bl_options = {'DEFAULT_CLOSED'}
+    bl_ui_units_x = 120  # 增加宽度
+    bl_ui_units_y = 80  # 增加高度
 
     def draw(self, context):
         layout = self.layout
@@ -110,20 +139,18 @@ class VIEW3D_PT_ai_assistant(Panel):
 
         ai_props = context.scene.ai_assistant
 
-        # Mode selection
+        # 标题和描述
         box = layout.box()
         row = box.row()
-        row.label(text="Mode:", icon='PRESET')
-
-        # Create a row with two radio buttons for mode selection
+        row.label(text="AI Assistant", icon='COMMUNITY')
         row = box.row()
-        row.scale_y = 1.2
-        row.prop(ai_props, "mode", expand=True)
+        row.label(text="使用AI助手生成和执行Blender Python代码")
 
         # Debug button (only visible in development mode)
         if bpy.app.debug:
             row = layout.row()
             row.operator("ai.debug", text="Debug", icon='CONSOLE')
+            row.operator("ai.run_tests", text="运行测试", icon='SCRIPT')
 
 
 # Import sys for forcing output flush
@@ -134,7 +161,6 @@ def debug_ai_assistant():
     print("\n==== AI Assistant Debug Information ====", flush=True)
     if hasattr(bpy.context.scene, "ai_assistant"):
         ai_props = bpy.context.scene.ai_assistant
-        print(f"Mode: {ai_props.mode}", flush=True)
         print(f"Message: {ai_props.message}", flush=True)
         print(f"Messages count: {len(ai_props.messages)}", flush=True)
         print(f"Keep open: {ai_props.keep_open}", flush=True)
@@ -145,7 +171,7 @@ def debug_ai_assistant():
     return "Debug information printed to console"
 
 
-# 修改AI_OT_set_mode操作符
+# 修改AI_OT_set_mode操作符 - 始终设置为Agent模式
 class AI_OT_set_mode(bpy.types.Operator):
     bl_idname = "ai.set_mode"
     bl_label = "Set Mode"
@@ -154,11 +180,11 @@ class AI_OT_set_mode(bpy.types.Operator):
     mode: StringProperty(name="Mode", default="AGENT")
 
     def execute(self, context):
-        context.scene.ai_assistant.mode = self.mode
+        # 始终设置为Agent模式
+        context.scene.ai_assistant.mode = 'AGENT'
         # 确保面板保持打开
         context.scene.ai_assistant.keep_open = True
-        mode_name = "Agent Mode" if self.mode == 'AGENT' else "3D Moder Mode"
-        self.report({'INFO'}, f"Mode set to {mode_name}")
+        self.report({'INFO'}, "AI Assistant is in Agent Mode")
         return {'FINISHED'}
 
 
@@ -172,19 +198,15 @@ class AI_OT_send_message(bpy.types.Operator):
         # 获取AI助手属性
         ai_props = context.scene.ai_assistant
 
-        # 获取当前模式
-        mode = ai_props.mode
-
         # 获取用户输入的消息
         message = ai_props.message
 
         # 检查消息是否为空，如果为空则使用默认内容
         if not message.strip():
-            # 根据当前模式设置默认消息
-            if mode == 'AGENT':
-                message = "设计一个鼻炎吸鼻器：三部分组成，一个盒子是洗鼻器的主体，包含电机等，可拆卸的部分1，能加入0.9%的生理盐水胶囊，像装子弹一样装上；可拆卸的部分2 ，带走废液，倒掉；像卸载子弹一样卸载；"
-            else:
-                message = "Type a message or /subdivide, @"
+            # 从配置文件读取默认提示文本
+            message = CONFIG.get("default_prompts", {}).get(
+                "cartoon_character", "为一个名为「小兔子」的卡通角色创建完整3D模型..."
+            )
 
             # 更新输入框显示默认消息
             ai_props.message = message
@@ -194,59 +216,55 @@ class AI_OT_send_message(bpy.types.Operator):
         user_msg.text = message
         user_msg.is_user = True
 
-        # 处理用户消息（基于当前模式）
-        if mode == 'AGENT':
-            # 导入Gemini API集成模块
-            try:
-                import ai_gemini_integration
+        # 处理用户消息
+        # 导入Gemini API集成模块
+        try:
+            import ai_gemini_integration
 
-                print("\n==== 使用Google Gemini API生成Blender代码 ====\n", flush=True)
-                print(f"用户输入: {message}", flush=True)
+            print("\n==== 使用Google Gemini API生成Blender代码 ====\n", flush=True)
+            print(f"用户输入: {message}", flush=True)
 
-                # 使用Gemini API生成Blender代码
-                success, result = ai_gemini_integration.generate_blender_code(message)
+            # 使用Gemini API生成Blender代码
+            success, result = ai_gemini_integration.generate_blender_code(message)
 
-                if success:
-                    print("\n[Gemini] 代码生成成功，准备执行...", flush=True)
+            if success:
+                print("\n[Gemini] 代码生成成功，准备执行...", flush=True)
 
-                    # 构建AI响应
-                    ai_response = f"已使用Google Gemini生成并执行以下代码:\n"
-                    ai_response += f"```python\n{result[:200]}...\n```\n\n"
+                # 构建AI响应
+                ai_response = f"已使用Google Gemini生成并执行以下代码:\n"
+                ai_response += f"```python\n{result[:200]}...\n```\n\n"
 
-                    # 执行生成的代码
-                    exec_success, exec_result = ai_gemini_integration.execute_blender_code(result)
+                # 执行生成的代码
+                exec_success, exec_result = ai_gemini_integration.execute_blender_code(result)
 
-                    if exec_success:
-                        ai_response += "✅ 代码执行成功，3D模型已生成。\n"
-                        ai_response += "\n您可以继续输入更多细节来完善模型。例如:\n"
-                        ai_response += "- 调整尺寸和比例\n"
-                        ai_response += "- 添加更多细节和功能部件\n"
-                        ai_response += "- 修改材质和颜色\n"
-                    else:
-                        ai_response += f"❌ 代码执行失败: {exec_result}\n"
-                        print(f"[Gemini] 执行错误: {exec_result}", flush=True)
+                if exec_success:
+                    ai_response += "✅ 代码执行成功，3D模型已生成。\n"
+                    ai_response += "\n您可以继续输入更多细节来完善模型。例如:\n"
+                    ai_response += "- 调整尺寸和比例\n"
+                    ai_response += "- 添加更多细节和功能部件\n"
+                    ai_response += "- 修改材质和颜色\n"
                 else:
-                    # 如果Gemini API调用失败，提供错误反馈
-                    print(f"[Gemini] API调用失败: {result}", flush=True)
-                    ai_response = f"❌ Gemini API调用失败: {result}\n\n"
-                    ai_response += "请检查以下可能的问题:\n"
-                    ai_response += "- API密钥是否正确配置\n"
-                    ai_response += "- 网络连接是否正常\n"
-                    ai_response += "- 请求是否符合API要求\n\n"
-                    ai_response += "您可以尝试重新发送请求或修改您的描述后再试。"
-            except ImportError:
-                print("\n[错误] 无法导入ai_gemini_integration模块", flush=True)
-
-                # 提供错误反馈
-                ai_response = "❌ 系统错误: 无法加载Gemini API集成模块\n\n"
+                    ai_response += f"❌ 代码执行失败: {exec_result}\n"
+                    print(f"[Gemini] 执行错误: {exec_result}", flush=True)
+            else:
+                # 如果Gemini API调用失败，提供错误反馈
+                print(f"[Gemini] API调用失败: {result}", flush=True)
+                ai_response = f"❌ Gemini API调用失败: {result}\n\n"
                 ai_response += "请检查以下可能的问题:\n"
-                ai_response += "- Blender安装是否完整\n"
-                ai_response += "- ai_gemini_integration.py文件是否存在于正确位置\n"
-                ai_response += "- 是否有权限访问该文件\n\n"
-                ai_response += "请联系系统管理员解决此问题。"
-        else:
-            # 聊天模式：简单回应
-            ai_response = "已收到您的消息。我是3D建模助手，可以帮助您进行3D建模相关操作。"
+                ai_response += "- API密钥是否正确配置\n"
+                ai_response += "- 网络连接是否正常\n"
+                ai_response += "- 请求是否符合API要求\n\n"
+                ai_response += "您可以尝试重新发送请求或修改您的描述后再试。"
+        except ImportError:
+            print("\n[错误] 无法导入ai_gemini_integration模块", flush=True)
+
+            # 提供错误反馈
+            ai_response = "❌ 系统错误: 无法加载Gemini API集成模块\n\n"
+            ai_response += "请检查以下可能的问题:\n"
+            ai_response += "- Blender安装是否完整\n"
+            ai_response += "- ai_gemini_integration.py文件是否存在于正确位置\n"
+            ai_response += "- 是否有权限访问该文件\n\n"
+            ai_response += "请联系系统管理员解决此问题。"
 
         # 添加AI响应到历史记录
         ai_msg = ai_props.messages.add()
@@ -266,7 +284,7 @@ class AI_OT_send_message(bpy.types.Operator):
         for area in context.screen.areas:
             area.tag_redraw()
 
-        self.report({'INFO'}, f"指令已处理 ({mode} 模式)")
+        self.report({'INFO'}, "指令已处理")
         return {'FINISHED'}
 
     def execute_operation(self, api_call):
@@ -533,7 +551,7 @@ class VIEW3D_PT_ai_assistant_input(Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "scene"
-    bl_label = "3D Moder Copilot"
+    bl_label = "AI Assistant"
     bl_parent_id = "VIEW3D_PT_ai_assistant"
     bl_options = {'INSTANCED'}
     bl_ui_units_x = 80  # 增加宽度
@@ -544,12 +562,12 @@ class VIEW3D_PT_ai_assistant_input(Panel):
 
         # Check if the property group is registered
         if not hasattr(context.scene, "ai_assistant"):
-            layout.label(text="3D Moder Copilot not initialized yet.")
+            layout.label(text="AI Assistant not initialized yet.")
             layout.label(text="Please restart Blender.")
 
             # Try to register the property group
             row = layout.row()
-            row.operator("ai.initialize", text="Initialize 3D Moder", icon='FILE_REFRESH')
+            row.operator("ai.initialize", text="Initialize AI Assistant", icon='FILE_REFRESH')
             return
 
         ai_props = context.scene.ai_assistant
@@ -635,11 +653,17 @@ class VIEW3D_PT_ai_assistant_input(Panel):
             input_col = input_row.column()
             input_col.scale_y = 2.0
             input_col.scale_x = 5.0
+            # 从配置文件读取占位符文本
+            placeholder_text = CONFIG.get("default_prompts", {}).get(
+                "placeholder_short",
+                "为一个名为「小兔子」的卡通角色创建完整3D模型，包含头部、耳朵、眼睛、嘴巴、手臂、腿部和尾巴等结构...",
+            )
+
             input_col.prop(
                 ai_props,
                 "message",
                 text="",
-                placeholder="设计一个鼻炎吸鼻器：三部分组成，一个盒子是洗鼻器的主体，包含电机等，可拆卸的部分1，能加入0.9%的生理盐水胶囊，像装子弹一样装上；可拆卸的部分2 ，带走废液，倒掉；像卸载子弹一样卸载；",
+                placeholder=placeholder_text,
             )
 
             # 发送按钮
@@ -775,7 +799,9 @@ class VIEW3D_PT_ai_assistant_input(Panel):
             input_col = input_row.column()
             input_col.scale_y = 3.0  # 增加高度
             input_col.scale_x = 5.0  # 增加宽度
-            input_col.prop(ai_props, "message", text="", placeholder="Type a message or /subdivide, @")
+            # 从配置文件读取聊天模式占位符文本
+            chat_placeholder = CONFIG.get("default_prompts", {}).get("chat_mode", "Type a message or /subdivide, @")
+            input_col.prop(ai_props, "message", text="", placeholder=chat_placeholder)
 
             # 发送按钮
             send_col = input_row.column()
@@ -945,260 +971,126 @@ class AI_OT_refresh_history(bpy.types.Operator):
         return {'FINISHED'}
 
 
+# 添加重新加载配置文件的操作符
+class AI_OT_reload_config(bpy.types.Operator):
+    bl_idname = "ai.reload_config"
+    bl_label = "重新加载配置"
+    bl_description = "重新加载配置文件"
+
+    def execute(self, context):
+        global CONFIG
+        # 重新加载配置文件
+        CONFIG = load_config()
+
+        # 强制刷新UI
+        for area in context.screen.areas:
+            area.tag_redraw()
+
+        self.report({'INFO'}, "已重新加载配置文件")
+        return {'FINISHED'}
+
+
 # 保持其他代码不变
 class VIEW3D_PT_ai_assistant_input(Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "scene"
-    bl_label = "3D Moder Copilot"
+    bl_label = "AI Assistant"
     bl_parent_id = "VIEW3D_PT_ai_assistant"
     bl_options = {'INSTANCED'}
-    bl_ui_units_x = 80  # 增加宽度
-    bl_ui_units_y = 60  # 增加高度
+    bl_ui_units_x = 120  # 增加宽度
+    bl_ui_units_y = 80  # 增加高度
 
     def draw(self, context):
         layout = self.layout
 
         # Check if the property group is registered
         if not hasattr(context.scene, "ai_assistant"):
-            layout.label(text="3D Moder Copilot not initialized yet.")
+            layout.label(text="AI Assistant not initialized yet.")
             layout.label(text="Please restart Blender.")
 
             # Try to register the property group
             row = layout.row()
-            row.operator("ai.initialize", text="Initialize 3D Moder", icon='FILE_REFRESH')
+            row.operator("ai.initialize", text="Initialize AI Assistant", icon='FILE_REFRESH')
             return
 
         ai_props = context.scene.ai_assistant
 
-        # 顶部标题栏 - 带有边框的盒子
-        title_box = layout.box()
-        title_row = title_box.row()
-        title_row.scale_y = 1.5
-        title_row.label(text="🧊 3D MODER COPILOT – 建模智能助手", icon='OUTLINER_OB_MESH')
+        # 移除顶部标题栏
 
-        if ai_props.mode == 'AGENT':
-            title_row.label(text="（Agent模式）")
+        # 移除设置区
+
+        # 始终显示Agent模式界面
+        # 在VIEW3D_PT_ai_assistant_input类的draw方法中，修改操作记录/信息输出区部分
+
+        # 操作记录/信息输出区
+        log_box = layout.box()
+        log_title = log_box.row()
+        log_title.scale_y = 1.2
+        log_title.label(text="🔸 操作记录 / 信息输出区", icon='TEXT')
+
+        # 移除所有按钮
+
+        # 操作记录内容
+        log_content = log_box.box()
+        log_content.scale_y = 1.0
+
+        # 显示历史对话记录
+        if hasattr(ai_props, "messages") and len(ai_props.messages) > 0:
+            # 最多显示最近的8条消息
+            start_idx = max(0, len(ai_props.messages) - 8)
+
+            for i in range(start_idx, len(ai_props.messages)):
+                msg = ai_props.messages[i]
+                msg_row = log_content.row()
+
+                if msg.is_user:
+                    msg_row.label(text=f"[User] {msg.text[:60]}{'...' if len(msg.text) > 60 else ''}")
+                else:
+                    msg_row.label(text=f"[AI] {msg.text[:60]}{'...' if len(msg.text) > 60 else ''}")
         else:
-            title_row.label(text="（3D Moder模式）")
+            # 如果没有历史消息，不显示任何默认内容
+            pass
 
-        # 模式切换区
-        mode_box = layout.box()
-        mode_row = mode_box.row(align=True)
-        mode_row.scale_y = 1.5
+        # 3. 用户需求输入文本区
+        input_box = layout.box()
+        input_title = input_box.row()
+        input_title.scale_y = 1.2
+        input_title.label(text="💬 输入栏 + 发送按钮", icon='CONSOLE')
 
-        # Agent模式按钮
-        if ai_props.mode == 'AGENT':
-            agent_btn = mode_row.operator("ai.set_mode", text="✅ Agent Mode", icon='TOOL_SETTINGS')
-            agent_btn.mode = 'AGENT'
-        else:
-            agent_btn = mode_row.operator("ai.set_mode", text="Agent Mode", icon='TOOL_SETTINGS')
-            agent_btn.mode = 'AGENT'
+        # 输入框行
+        input_row = input_box.row()
 
-        mode_row.separator(factor=1.0)
+        # 输入框
+        input_col = input_row.column()
+        input_col.scale_y = 2.0
+        input_col.scale_x = 8.0  # 增加输入框宽度
+        # 从配置文件读取占位符文本
+        placeholder_text = CONFIG.get("default_prompts", {}).get(
+            "placeholder_short",
+            "为一个名为「小兔子」的卡通角色创建完整3D模型，包含头部、耳朵、眼睛、嘴巴、手臂、腿部和尾巴等结构...",
+        )
 
-        # 3D Moder模式按钮
-        if ai_props.mode == 'CHAT':
-            moder_btn = mode_row.operator("ai.set_mode", text="✅ 3D Moder Mode", icon='OUTLINER_OB_MESH')
-            moder_btn.mode = 'CHAT'
-        else:
-            moder_btn = mode_row.operator("ai.set_mode", text="3D Moder Mode", icon='OUTLINER_OB_MESH')
-            moder_btn.mode = 'CHAT'
+        input_col.prop(
+            ai_props,
+            "message",
+            text="",
+            placeholder=placeholder_text,
+        )
 
-        # Agent模式界面
-        if ai_props.mode == 'AGENT':
-            # 在VIEW3D_PT_ai_assistant_input类的draw方法中，修改操作记录/信息输出区部分
+        # 发送按钮
+        send_col = input_row.column()
+        send_col.scale_x = 1.0
+        send_col.scale_y = 2.0
+        send_col.operator("ai.send_message", text="发送", icon='PLAY')
 
-            # 操作记录/信息输出区
-            log_box = layout.box()
-            log_title = log_box.row()
-            log_title.scale_y = 1.2
-            log_title.label(text="🔸 操作记录 / 信息输出区", icon='TEXT')
+        # 4. 执行Blender Python脚本按钮
+        script_box = layout.box()
+        script_row = script_box.row()
+        script_row.scale_y = 1.5
+        script_row.operator("ai.execute_script", text="执行 Blender Python 脚本", icon='SCRIPT')
 
-            # 添加刷新按钮
-            refresh_btn = log_title.operator("ai.refresh_history", text="", icon='FILE_REFRESH')
-
-            # 操作记录内容
-            log_content = log_box.box()
-            log_content.scale_y = 1.0
-
-            # 显示历史对话记录
-            if hasattr(ai_props, "messages") and len(ai_props.messages) > 0:
-                # 最多显示最近的8条消息
-                start_idx = max(0, len(ai_props.messages) - 8)
-
-                for i in range(start_idx, len(ai_props.messages)):
-                    msg = ai_props.messages[i]
-                    msg_row = log_content.row()
-
-                    if msg.is_user:
-                        msg_row.label(text=f"[User] {msg.text[:60]}{'...' if len(msg.text) > 60 else ''}")
-                    else:
-                        msg_row.label(text=f"[AI] {msg.text[:60]}{'...' if len(msg.text) > 60 else ''}")
-            else:
-                # 如果没有历史消息，不显示任何默认内容
-                pass
-
-            # 输入栏 + 发送按钮
-            input_box = layout.box()
-            input_title = input_box.row()
-            input_title.scale_y = 1.2
-            input_title.label(text="💬 输入栏 + 发送按钮", icon='CONSOLE')
-
-            # 输入框行
-            input_row = input_box.row()
-
-            # 输入框
-            input_col = input_row.column()
-            input_col.scale_y = 2.0
-            input_col.scale_x = 5.0
-            input_col.prop(
-                ai_props,
-                "message",
-                text="",
-                placeholder="设计一个鼻炎吸鼻器：三部分组成，一个盒子是洗鼻器的主体，包含电机等，可拆卸的部分1，能加入0.9%的生理盐水胶囊，像装子弹一样装上；可拆卸的部分2 ，带走废液，倒掉；像卸载子弹一样卸载；",
-            )
-
-            # 发送按钮
-            send_col = input_row.column()
-            send_col.scale_x = 1.0  # 增加宽度确保按钮完全显示
-            send_col.scale_y = 2.0
-            send_col.operator("ai.send_message", text="发送 ➤", icon='PLAY')
-
-        # 3D Moder模式界面
-        else:
-            # 双栏布局：左侧功能区，右侧预览区
-            split = layout.split(factor=0.6)
-
-            # 左侧功能面板（深灰底色）
-            left_col = split.column()
-            content_box = left_col.box()
-
-            # 主操作引导
-            title_row = content_box.row()
-            title_row.scale_y = 1.5
-            title_row.label(text="Edit 3D Model with AI", icon='MODIFIER')
-
-            # 副标题
-            subtitle_row = content_box.row()
-            subtitle_row.scale_y = 1.2
-            subtitle_row.label(text="Current Mode: Auto Topology Fix")
-
-            # 符号指令栏
-            cmd_box = content_box.box()
-            cmd_title = cmd_box.row()
-            cmd_title.scale_y = 1.2
-            cmd_title.label(text="Input Commands:", icon='CONSOLE')
-
-            # 指令示例
-            commands = ["# 输入指令...", "@ 调用插件库", "/subdivide 2"]
-
-            for cmd in commands:
-                cmd_row = cmd_box.row()
-                cmd_row.scale_y = 1.2
-                cmd_row.label(text=cmd)
-
-            # AI建议面板
-            ai_box = content_box.box()
-            ai_title = ai_box.row()
-            ai_title.alert = True
-            ai_title.scale_y = 1.2
-            ai_title.label(text="[AI建议] 检测到3处非流形边 → 修复", icon='ERROR')
-
-            # 材质/动画库
-            material_box = content_box.box()
-            material_title = material_box.row()
-            material_title.scale_y = 1.2
-            material_title.label(text="材质库", icon='MATERIAL')
-
-            # 材质球列表
-            material_row = material_box.row()
-            material_row.scale_y = 1.5
-            material_row.label(text="金属", icon='MATERIAL')
-            material_row.label(text="塑料", icon='MATERIAL')
-            material_row.label(text="玻璃", icon='MATERIAL')
-
-            # 右侧预览窗口（黑色背景）
-            right_col = split.column()
-            preview_box = right_col.box()
-
-            # 实时渲染区
-            preview_title = preview_box.row()
-            preview_title.scale_y = 1.2
-            preview_title.label(text="3D Preview", icon='SHADING_WIRE')
-
-            # 工具栏悬浮层 - 顶部
-            tools_top = preview_box.row(align=True)
-            tools_top.alignment = 'CENTER'
-            tools_top.scale_y = 1.0
-            tools_top.label(text="", icon='ORIENTATION_VIEW')
-            tools_top.label(text="", icon='SHADING_SOLID')
-            tools_top.label(text="", icon='CAMERA_DATA')
-
-            # 模型预览图像
-            preview_img = preview_box.row()
-            preview_img.scale_y = 8.0
-            preview_img.alignment = 'CENTER'
-            preview_img.label(text="[可旋转模型]", icon='OUTLINER_OB_MESH')
-
-            # 工具栏悬浮层 - 底部
-            tools_bottom = preview_box.row(align=True)
-            tools_bottom.alignment = 'CENTER'
-            tools_bottom.scale_y = 1.0
-            tools_bottom.label(text="", icon='VERTEXSEL')
-            tools_bottom.label(text="", icon='EDGESEL')
-            tools_bottom.label(text="", icon='FACESEL')
-
-            # 悬浮工具提示
-            tools_row = preview_box.row()
-            tools_row.alignment = 'CENTER'
-            tools_row.label(text="右键唤出工具环", icon='TOOL_SETTINGS')
-
-            # 视图控制提示
-            view_row = preview_box.row()
-            view_row.alignment = 'CENTER'
-            view_row.label(text="旋转: 方向键 | 缩放: 滚轮")
-
-            # 底部状态栏（半透明黑色底栏）
-            footer_box = layout.box()
-            footer_row = footer_box.row()
-
-            # 左侧功能区
-            left_footer = footer_row.row()
-            left_footer.alignment = 'LEFT'
-            left_footer.label(text="3D Assets: 12 | Textures: 24", icon='OUTLINER_OB_MESH')
-
-            # Add Context按钮
-            add_context_btn = left_footer.operator("wm.context_toggle", text="Add Context...", icon='ADD')
-
-            # 中间文件信息（高亮显示）
-            middle_footer = footer_row.row()
-            middle_footer.alignment = 'CENTER'
-            middle_footer.alert = True  # 高亮显示
-            middle_footer.label(text="character.fbx > Mesh[Body]")
-
-            # 右侧引擎标识
-            right_footer = footer_row.row()
-            right_footer.alignment = 'RIGHT'
-            right_footer.label(text="NVIDIA Omniverse AI Engine v2.1", icon='GPU')
-
-            # 消息输入区 - 完整铺满整个程序
-            input_box = layout.box()
-
-            # 输入框行
-            input_row = input_box.row()
-
-            # 输入框 - 大尺寸
-            input_col = input_row.column()
-            input_col.scale_y = 3.0  # 增加高度
-            input_col.scale_x = 5.0  # 增加宽度
-            input_col.prop(ai_props, "message", text="", placeholder="Type a message or /subdivide, @")
-
-            # 发送按钮
-            send_col = input_row.column()
-            send_col.scale_x = 0.8  # 增加宽度确保按钮完全显示
-            send_col.scale_y = 3.0  # 增加高度与输入框一致
-            send_col.operator("ai.send_message", text="发送", icon='PLAY')
+        # 已移除 3D Moder 模式界面
 
 
 # Operator to toggle the AI Assistant panel
@@ -1320,6 +1212,8 @@ class VIEW3D_PT_ai_assistant_history(Panel):
     bl_context = "scene"
     bl_label = "Chat History"
     bl_parent_id = "VIEW3D_PT_ai_assistant"
+    bl_ui_units_x = 120  # 增加宽度
+    bl_ui_units_y = 80  # 增加高度
 
     def draw(self, context):
         layout = self.layout
@@ -1340,6 +1234,126 @@ class VIEW3D_PT_ai_assistant_history(Panel):
         row.operator("ai.clear_history", text="Clear History", icon='TRASH')
 
 
+# 添加设置代码保存目录的操作符
+class AI_OT_set_code_save_dir(bpy.types.Operator):
+    bl_idname = "ai.set_code_save_dir"
+    bl_label = "设置代码保存目录"
+    bl_description = "设置生成的Python代码保存目录"
+    bl_options = {'REGISTER'}
+
+    directory: bpy.props.StringProperty(
+        name="目录", description="选择保存生成代码的目录", subtype='DIR_PATH', default=""
+    )
+
+    def execute(self, context):
+        try:
+            import ai_gemini_integration
+
+            success = ai_gemini_integration.set_code_save_directory(self.directory)
+            if success:
+                self.report({'INFO'}, f"代码保存目录已设置为: {self.directory if self.directory else '当前工作目录'}")
+            else:
+                self.report({'ERROR'}, "设置代码保存目录失败")
+        except ImportError:
+            self.report({'ERROR'}, "无法导入ai_gemini_integration模块")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+
+# 添加显示当前代码保存目录的操作符
+class AI_OT_show_code_save_dir(bpy.types.Operator):
+    bl_idname = "ai.show_code_save_dir"
+    bl_label = "显示代码保存目录"
+    bl_description = "显示当前生成的Python代码保存目录"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        try:
+            import ai_gemini_integration
+
+            directory = ai_gemini_integration.get_code_save_directory()
+            if directory:
+                self.report({'INFO'}, f"当前代码保存目录: {directory}")
+            else:
+                self.report({'INFO'}, "当前代码保存目录: 当前工作目录")
+        except ImportError:
+            self.report({'ERROR'}, "无法导入ai_gemini_integration模块")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+
+# 添加切换AI Assistant面板显示的操作符
+class AI_OT_toggle_panel(bpy.types.Operator):
+    bl_idname = "ai.toggle_panel"
+    bl_label = "切换AI Assistant面板"
+    bl_description = "切换AI Assistant面板的显示状态"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        # 切换keep_open属性
+        if hasattr(context.scene, "ai_assistant"):
+            context.scene.ai_assistant.keep_open = not context.scene.ai_assistant.keep_open
+
+            # 强制刷新UI
+            for area in context.screen.areas:
+                area.tag_redraw()
+
+            status = "打开" if context.scene.ai_assistant.keep_open else "关闭"
+            self.report({'INFO'}, f"AI Assistant面板已{status}")
+        else:
+            self.report({'ERROR'}, "AI Assistant尚未初始化")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+
+# 添加执行Blender Python脚本的操作符
+class AI_OT_execute_script(bpy.types.Operator):
+    bl_idname = "ai.execute_script"
+    bl_label = "执行脚本"
+    bl_description = "执行生成的Blender Python脚本"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        try:
+            import ai_gemini_integration
+
+            # 获取脚本文件路径
+            script_path = os.path.join(ai_gemini_integration.get_code_save_directory(), "gemini_latest_code.py")
+
+            if not os.path.exists(script_path):
+                self.report({'ERROR'}, f"脚本文件不存在: {script_path}")
+                return {'CANCELLED'}
+
+            # 执行脚本
+            print(f"\n[Blender Script] 正在执行脚本: {script_path}", flush=True)
+            with open(script_path, 'r', encoding='utf-8') as f:
+                script_code = f.read()
+
+            # 使用exec执行脚本
+            exec_globals = {
+                'bpy': bpy,
+                '__file__': script_path,
+                'math': __import__('math'),
+                'bmesh': __import__('bmesh'),
+                'log': lambda msg: print(f"Log: {msg}", flush=True),
+            }
+            exec(script_code, exec_globals)
+
+            self.report({'INFO'}, "脚本执行完成")
+        except ImportError as e:
+            self.report({'ERROR'}, f"无法导入模块: {str(e)}")
+            return {'CANCELLED'}
+        except Exception as e:
+            self.report({'ERROR'}, f"执行脚本时出错: {str(e)}")
+            print(traceback.format_exc(), flush=True)
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+
 # 在register函数之前的类列表中添加新的操作符
 classes = (
     AIMessageItem,
@@ -1352,7 +1366,8 @@ classes = (
     AI_OT_clear_history,
     AI_OT_initialize,
     AI_OT_debug,
-    AI_OT_refresh_history,  # 添加新的刷新历史操作符
+    AI_OT_toggle_panel,  # 添加切换AI Assistant面板显示的操作符
+    AI_OT_execute_script,  # 添加执行Blender Python脚本的操作符
 )
 
 

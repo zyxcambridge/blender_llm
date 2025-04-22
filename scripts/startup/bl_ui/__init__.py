@@ -68,6 +68,8 @@ _modules = [
     "space_toolsystem_common",
     "space_toolsystem_toolbar",
     "space_ai_sidebar",
+    "topbar_ai_menu",
+    "space_3d_moder",
     "space_clip",
     "space_console",
     "space_dopesheet",
