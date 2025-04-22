@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import sys
+import os
 import bpy
 from bpy.types import (
     Panel,
@@ -167,9 +168,8 @@ class AI_OT_send_message(bpy.types.Operator):
     bl_label = "Send Message"
     bl_description = "Send a message to the AI assistant"
 
-    # 修改AI_OT_send_message类中的execute方法
     def execute(self, context):
-        # 添加这一行来获取ai_props
+        # 获取AI助手属性
         ai_props = context.scene.ai_assistant
 
         # 获取当前模式
@@ -178,10 +178,16 @@ class AI_OT_send_message(bpy.types.Operator):
         # 获取用户输入的消息
         message = ai_props.message
 
-        # 检查消息是否为空
+        # 检查消息是否为空，如果为空则使用默认内容
         if not message.strip():
-            self.report({'WARNING'}, "请输入有效的消息")
-            return {'CANCELLED'}
+            # 根据当前模式设置默认消息
+            if mode == 'AGENT':
+                message = "设计一个鼻炎吸鼻器：三部分组成，一个盒子是洗鼻器的主体，包含电机等，可拆卸的部分1，能加入0.9%的生理盐水胶囊，像装子弹一样装上；可拆卸的部分2 ，带走废液，倒掉；像卸载子弹一样卸载；"
+            else:
+                message = "Type a message or /subdivide, @"
+
+            # 更新输入框显示默认消息
+            ai_props.message = message
 
         # 添加用户消息到历史记录
         user_msg = ai_props.messages.add()
@@ -190,23 +196,54 @@ class AI_OT_send_message(bpy.types.Operator):
 
         # 处理用户消息（基于当前模式）
         if mode == 'AGENT':
-            # 代理模式：将自然语言转换为Blender操作
-            operations = self.natural_language_to_operations(message)
+            # 导入Gemini API集成模块
+            try:
+                import ai_gemini_integration
 
-            # 构建AI响应
-            ai_response = f"已执行以下操作:\n"
+                print("\n==== 使用Google Gemini API生成Blender代码 ====\n", flush=True)
+                print(f"用户输入: {message}", flush=True)
 
-            # 处理每个操作
-            for op in operations:
-                ai_response += f"- {op['description']}\n"
-                print(f"Mouse Action: {op['mouse_action']}", flush=True)
-                print(f"API Call: {op['api_call']}", flush=True)
+                # 使用Gemini API生成Blender代码
+                success, result = ai_gemini_integration.generate_blender_code(message)
 
-                # 执行API调用
-                try:
-                    self.execute_operation(op['api_call'])
-                except Exception as e:
-                    ai_response += f"  错误: {str(e)}\n"
+                if success:
+                    print("\n[Gemini] 代码生成成功，准备执行...", flush=True)
+
+                    # 构建AI响应
+                    ai_response = f"已使用Google Gemini生成并执行以下代码:\n"
+                    ai_response += f"```python\n{result[:200]}...\n```\n\n"
+
+                    # 执行生成的代码
+                    exec_success, exec_result = ai_gemini_integration.execute_blender_code(result)
+
+                    if exec_success:
+                        ai_response += "✅ 代码执行成功，3D模型已生成。\n"
+                        ai_response += "\n您可以继续输入更多细节来完善模型。例如:\n"
+                        ai_response += "- 调整尺寸和比例\n"
+                        ai_response += "- 添加更多细节和功能部件\n"
+                        ai_response += "- 修改材质和颜色\n"
+                    else:
+                        ai_response += f"❌ 代码执行失败: {exec_result}\n"
+                        print(f"[Gemini] 执行错误: {exec_result}", flush=True)
+                else:
+                    # 如果Gemini API调用失败，提供错误反馈
+                    print(f"[Gemini] API调用失败: {result}", flush=True)
+                    ai_response = f"❌ Gemini API调用失败: {result}\n\n"
+                    ai_response += "请检查以下可能的问题:\n"
+                    ai_response += "- API密钥是否正确配置\n"
+                    ai_response += "- 网络连接是否正常\n"
+                    ai_response += "- 请求是否符合API要求\n\n"
+                    ai_response += "您可以尝试重新发送请求或修改您的描述后再试。"
+            except ImportError:
+                print("\n[错误] 无法导入ai_gemini_integration模块", flush=True)
+
+                # 提供错误反馈
+                ai_response = "❌ 系统错误: 无法加载Gemini API集成模块\n\n"
+                ai_response += "请检查以下可能的问题:\n"
+                ai_response += "- Blender安装是否完整\n"
+                ai_response += "- ai_gemini_integration.py文件是否存在于正确位置\n"
+                ai_response += "- 是否有权限访问该文件\n\n"
+                ai_response += "请联系系统管理员解决此问题。"
         else:
             # 聊天模式：简单回应
             ai_response = "已收到您的消息。我是3D建模助手，可以帮助您进行3D建模相关操作。"
@@ -233,132 +270,239 @@ class AI_OT_send_message(bpy.types.Operator):
         return {'FINISHED'}
 
     def execute_operation(self, api_call):
-        """安全执行API调用"""
+        """安全执行API调用
+
+        这个函数执行由Agent 1生成的Blender API调用
+        """
+        print(f"\n[执行API] 开始执行API调用: {api_call}", flush=True)
+
         # 使用exec而不是eval以支持多行操作
         namespace = {'bpy': bpy}
         try:
+            # 执行API调用
             exec(api_call, namespace)
+            print(f"[执行API] API调用执行成功", flush=True)
             return True
         except Exception as e:
-            print(f"执行错误 ({api_call}): {str(e)}", flush=True)
+            print(f"[执行API] 执行错误 ({api_call}): {str(e)}", flush=True)
             raise e
 
-    def natural_language_to_operations(self, message):
-        """将自然语言指令转换为Blender操作列表"""
-        operations = []
+    def get_conversation_history(self):
+        """获取对话历史记录，用于上下文理解
 
-        # 简单的关键词匹配示例
-        if "创建" in message or "新建" in message or "设计" in message:
-            if "立方体" in message or "方块" in message:
-                operations.append(
-                    {
-                        "description": "创建立方体",
-                        "api_call": "bpy.ops.mesh.primitive_cube_add(size=2, enter_editmode=False, align='WORLD')",
-                        "mouse_action": "单击添加 > 网格 > 立方体",
-                    }
-                )
-            elif "球体" in message or "球形" in message:
-                operations.append(
-                    {
-                        "description": "创建球体",
-                        "api_call": "bpy.ops.mesh.primitive_uv_sphere_add(radius=1, enter_editmode=False, align='WORLD')",
-                        "mouse_action": "单击添加 > 网格 > 球体",
-                    }
-                )
-            elif "圆柱" in message:
-                operations.append(
-                    {
-                        "description": "创建圆柱体",
-                        "api_call": "bpy.ops.mesh.primitive_cylinder_add(radius=1, depth=2, enter_editmode=False, align='WORLD')",
-                        "mouse_action": "单击添加 > 网格 > 圆柱体",
-                    }
-                )
+        返回一个包含所有历史消息的列表，格式为：["用户: 消息1", "AI: 回复1", ...]
+        """
+        context = []
 
-            # 特殊处理：鼻炎吸鼻器
-            if "鼻炎吸鼻器" in message:
-                # 主体盒子
-                operations.append(
-                    {
-                        "description": "创建主体盒子",
-                        "api_call": "bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 0))",
-                        "mouse_action": "单击添加 > 网格 > 立方体，位置(0,0,0)",
-                    }
-                )
+        # 获取场景中的AI助手属性
+        if hasattr(bpy.context.scene, "ai_assistant"):
+            ai_props = bpy.context.scene.ai_assistant
 
-                # 可拆卸部分1 - 盐水胶囊仓
-                operations.append(
-                    {
-                        "description": "创建盐水胶囊仓",
-                        "api_call": "bpy.ops.mesh.primitive_cylinder_add(radius=0.5, depth=1.5, location=(0, 2, 0))",
-                        "mouse_action": "单击添加 > 网格 > 圆柱体，位置(0,2,0)",
-                    }
-                )
+            # 遍历所有历史消息
+            for msg in ai_props.messages:
+                prefix = "用户: " if msg.is_user else "AI: "
+                context.append(prefix + msg.text)
 
-                # 可拆卸部分2 - 废液收集仓
-                operations.append(
-                    {
-                        "description": "创建废液收集仓",
-                        "api_call": "bpy.ops.mesh.primitive_cylinder_add(radius=0.5, depth=1.5, location=(0, -2, 0))",
-                        "mouse_action": "单击添加 > 网格 > 圆柱体，位置(0,-2,0)",
-                    }
-                )
+        return context
 
-                # 为主体添加细节
-                operations.append(
-                    {
-                        "description": "选择主体并添加细分",
-                        "api_call": "bpy.ops.object.select_pattern(pattern='Cube'); bpy.ops.object.modifier_add(type='SUBSURF')",
-                        "mouse_action": "选择立方体 > 右键 > 添加修改器 > 细分曲面",
-                    }
-                )
+    def is_refinement_request(self, message, context):
+        """检查当前消息是否是对之前模型的细化请求
 
-                # 添加材质
-                operations.append(
-                    {
-                        "description": "为所有部件添加材质",
-                        "api_call": "bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.material_slot_add()",
-                        "mouse_action": "全选 > 材质属性面板 > 添加材质",
-                    }
-                )
+        参数:
+            message: 当前用户消息
+            context: 对话历史记录列表
 
-        elif "删除" in message or "移除" in message:
-            operations.append(
-                {
-                    "description": "删除选中物体",
-                    "api_call": "bpy.ops.object.delete()",
-                    "mouse_action": "选择物体 > 按Delete键",
-                }
-            )
+        返回:
+            is_refinement: 是否是细化请求
+            previous_model: 之前创建的模型信息 (如果有)
+        """
+        # 如果没有历史记录，则不是细化请求
+        if not context:
+            return False, None
 
-        elif "旋转" in message:
-            operations.append(
-                {
-                    "description": "旋转选中物体90度",
-                    "api_call": "bpy.ops.transform.rotate(value=1.5708, orient_axis='Z')",
-                    "mouse_action": "选择物体 > 按R键 > Z键 > 输入90 > 回车",
-                }
-            )
+        # 检查关键词
+        refinement_keywords = ["细化", "修改", "调整", "改进", "优化", "更精细", "更详细", "完善"]
+        has_refinement_intent = any(keyword in message for keyword in refinement_keywords)
 
-        elif "缩放" in message:
-            operations.append(
-                {
-                    "description": "缩放选中物体",
-                    "api_call": "bpy.ops.transform.resize(value=(2, 2, 2))",
-                    "mouse_action": "选择物体 > 按S键 > 输入2 > 回车",
-                }
-            )
+        # 查找之前创建的模型信息
+        previous_model = None
+        for msg in reversed(context):
+            if "AI: " in msg and "创建" in msg:
+                # 提取之前创建的模型信息
+                previous_model = msg
+                break
 
-        # 如果没有匹配到任何操作，返回默认操作
-        if not operations:
-            operations.append(
-                {
-                    "description": "默认操作：进入编辑模式",
-                    "api_call": "bpy.ops.object.mode_set(mode='EDIT')",
-                    "mouse_action": "选择物体 > Tab键",
-                }
-            )
+        # 如果有细化意图且有之前的模型，则认为是细化请求
+        return has_refinement_intent and previous_model is not None, previous_model
 
-        return operations
+    # natural_language_to_operations方法已被移除，所有用户输入现在通过Gemini API处理
+
+    def api_to_mouse_action(self, api_call, description):
+        """Agent 2: 将API调用转换为具体的鼠标点击操作
+
+        这个函数模拟了第二个Agent的功能，将Blender API调用转换为用户界面上的鼠标操作步骤
+        """
+        # 这里可以集成Google的Agent或其他LLM服务来生成更精确的鼠标操作指南
+        # 目前使用简化的映射作为示例
+        import re
+
+        # 基于API调用的简单映射
+        if "primitive_cube_add" in api_call:
+            # 解析参数
+            size_match = re.search(r'size=([^,)]+)', api_call)
+            location_match = re.search(r'location=\(([^)]+)\)', api_call)
+
+            size = size_match.group(1) if size_match else "2"
+            location = location_match.group(1) if location_match else "0, 0, 0"
+
+            mouse_action = f"单击添加 > 网格 > 立方体"
+            if location_match:
+                mouse_action += f"，然后在位置面板中设置位置为({location})"
+            if size_match and size != "2":
+                mouse_action += f"，设置尺寸为{size}"
+
+            return mouse_action
+
+        elif "primitive_uv_sphere_add" in api_call:
+            # 解析参数
+            radius_match = re.search(r'radius=([^,)]+)', api_call)
+            location_match = re.search(r'location=\(([^)]+)\)', api_call)
+
+            radius = radius_match.group(1) if radius_match else "1"
+            location = location_match.group(1) if location_match else "0, 0, 0"
+
+            mouse_action = f"单击添加 > 网格 > 球体"
+            if location_match:
+                mouse_action += f"，然后在位置面板中设置位置为({location})"
+            if radius_match and radius != "1":
+                mouse_action += f"，设置半径为{radius}"
+
+            return mouse_action
+
+        elif "primitive_cylinder_add" in api_call:
+            # 解析参数
+            radius_match = re.search(r'radius=([^,)]+)', api_call)
+            depth_match = re.search(r'depth=([^,)]+)', api_call)
+            location_match = re.search(r'location=\(([^)]+)\)', api_call)
+            vertices_match = re.search(r'vertices=([^,)]+)', api_call)
+            rotation_match = re.search(r'rotation=\(([^)]+)\)', api_call)
+
+            radius = radius_match.group(1) if radius_match else "1"
+            depth = depth_match.group(1) if depth_match else "2"
+            location = location_match.group(1) if location_match else "0, 0, 0"
+            vertices = vertices_match.group(1) if vertices_match else "32"
+            rotation = rotation_match.group(1) if rotation_match else "0, 0, 0"
+
+            mouse_action = f"单击添加 > 网格 > 圆柱体"
+            if location_match:
+                mouse_action += f"，然后在位置面板中设置位置为({location})"
+            if radius_match and radius != "1":
+                mouse_action += f"，设置半径为{radius}"
+            if depth_match and depth != "2":
+                mouse_action += f"，设置深度为{depth}"
+            if vertices_match and vertices != "32":
+                mouse_action += f"，设置顶点数为{vertices}"
+            if rotation_match and rotation != "0, 0, 0":
+                mouse_action += f"，设置旋转为({rotation})"
+
+            return mouse_action
+
+        elif "object.light_add" in api_call:
+            # 解析参数
+            type_match = re.search(r'type=\'([^\']+)\'', api_call)
+            radius_match = re.search(r'radius=([^,)]+)', api_call)
+            location_match = re.search(r'location=\(([^)]+)\)', api_call)
+
+            light_type = type_match.group(1) if type_match else "POINT"
+            radius = radius_match.group(1) if radius_match else "1"
+            location = location_match.group(1) if location_match else "0, 0, 0"
+
+            light_type_map = {"POINT": "点光源", "SUN": "太阳光", "SPOT": "聚光灯", "AREA": "区域光"}
+
+            light_type_zh = light_type_map.get(light_type, light_type)
+
+            mouse_action = f"单击添加 > 光源 > {light_type_zh}"
+            if location_match:
+                mouse_action += f"，然后在位置面板中设置位置为({location})"
+            if radius_match and radius != "1":
+                mouse_action += f"，设置半径为{radius}"
+
+            return mouse_action
+
+        elif "object.delete" in api_call:
+            return "选择物体 > 按Delete键 > 确认删除"
+
+        elif "transform.rotate" in api_call:
+            # 解析旋转轴和角度
+            value_match = re.search(r'value=([^,]+)', api_call)
+            axis_match = re.search(r'orient_axis=\'([^\']+)\'', api_call)
+
+            value = value_match.group(1) if value_match else "1.5708"
+            axis = axis_match.group(1) if axis_match else "Z"
+
+            # 将弧度转换为角度（大致）
+            try:
+                angle = round(float(value) * 180 / 3.14159)
+            except:
+                angle = 90
+
+            return f"选择物体 > 按R键 > {axis}键 > 输入{angle} > 回车"
+
+        elif "transform.resize" in api_call:
+            # 解析缩放值
+            value_match = re.search(r'value=\(([^)]+)\)', api_call)
+
+            if value_match:
+                values = value_match.group(1).split(',')
+                if len(values) > 0:
+                    scale = values[0].strip()
+                    return f"选择物体 > 按S键 > 输入{scale} > 回车"
+
+            return "选择物体 > 按S键 > 输入2 > 回车"
+
+        elif "object.mode_set" in api_call and "EDIT" in api_call:
+            return "选择物体 > Tab键"
+
+        elif "object.select_pattern" in api_call:
+            # 解析选择模式
+            pattern_match = re.search(r'pattern=\'([^\']+)\'', api_call)
+            pattern = pattern_match.group(1) if pattern_match else "物体"
+
+            return f"在大纲视图中找到并选择{pattern}"
+
+        elif "object.modifier_add" in api_call:
+            # 解析修改器类型
+            type_match = re.search(r'type=\'([^\']+)\'', api_call)
+            mod_type = type_match.group(1) if type_match else "SUBSURF"
+
+            modifier_type_map = {
+                "SUBSURF": "细分曲面",
+                "BEVEL": "倒角",
+                "MIRROR": "镜像",
+                "SOLIDIFY": "实体化",
+                "ARRAY": "阵列",
+            }
+
+            mod_type_zh = modifier_type_map.get(mod_type, mod_type)
+
+            return f"选择物体 > 右键 > 添加修改器 > {mod_type_zh}"
+
+        elif "object.select_all" in api_call and "SELECT" in api_call:
+            return "按A键全选所有物体"
+
+        elif "object.material_slot_add" in api_call:
+            # 检查是否有材质颜色设置
+            color_match = re.search(r'diffuse_color\s*=\s*\(([^)]+)\)', api_call)
+
+            mouse_action = "材质属性面板 > 点击新建按钮"
+            if color_match:
+                color = color_match.group(1)
+                mouse_action += f" > 设置漫反射颜色为({color})"
+
+            return mouse_action
+
+        # 默认情况
+        return f"执行操作: {description}"
 
 
 # Operator to clear chat history
@@ -495,7 +639,7 @@ class VIEW3D_PT_ai_assistant_input(Panel):
                 ai_props,
                 "message",
                 text="",
-                placeholder="设计一个鼻炎吸鼻器：三部分组成，一个盒子是洗鼻器的主体，包含电机等，可拆卸的部分1，能加入0.9%的生理盐水胶囊，想转子弹一样装上；可拆卸的部分2 ，带走废液，倒掉；像卸载子弹一样卸载；",
+                placeholder="设计一个鼻炎吸鼻器：三部分组成，一个盒子是洗鼻器的主体，包含电机等，可拆卸的部分1，能加入0.9%的生理盐水胶囊，像装子弹一样装上；可拆卸的部分2 ，带走废液，倒掉；像卸载子弹一样卸载；",
             )
 
             # 发送按钮
@@ -912,7 +1056,7 @@ class VIEW3D_PT_ai_assistant_input(Panel):
                 ai_props,
                 "message",
                 text="",
-                placeholder="设计一个鼻炎吸鼻器：三部分组成，一个盒子是洗鼻器的主体，包含电机等，可拆卸的部分1，能加入0.9%的生理盐水胶囊，想转子弹一样装上；可拆卸的部分2 ，带走废液，倒掉；像卸载子弹一样卸载；",
+                placeholder="设计一个鼻炎吸鼻器：三部分组成，一个盒子是洗鼻器的主体，包含电机等，可拆卸的部分1，能加入0.9%的生理盐水胶囊，像装子弹一样装上；可拆卸的部分2 ，带走废液，倒掉；像卸载子弹一样卸载；",
             )
 
             # 发送按钮
