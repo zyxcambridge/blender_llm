@@ -1,0 +1,57 @@
+def fix_common_code_issues(code):
+    """修复生成的代码中的常见问题
+
+    Args:
+        code (str): 原始生成的代码
+
+    Returns:
+        str: 修复后的代码
+    """
+    # 1. 移除不存在的参数，如clip_end
+    code = re.sub(r'clip_end\s*=\s*(?:True|False|\d+\.\d+|\d+)', '', code)
+    
+    # 2. 修复重复的行，如重复的对象赋值
+    lines = code.split('\n')
+    fixed_lines = []
+    prev_line = None
+    for line in lines:
+        if line.strip() and line != prev_line:
+            fixed_lines.append(line)
+        prev_line = line
+    
+    # 3. 确保使用bpy.app.timers.register而不是if __name__ == "__main__"
+    fixed_code = '\n'.join(fixed_lines)
+    if "if __name__ == \"__main__\"" in fixed_code and "main()" in fixed_code:
+        # 替换为正确的执行方式
+        fixed_code = re.sub(
+            r'if\s+__name__\s*==\s*[\'"]__main__[\'"]\s*:\s*\n\s*main\(\)',
+            '# 使用 bpy.app.timers.register 而不是 if __name__ == "__main__"\nbpy.app.timers.register(main)',
+            fixed_code
+        )
+    
+    # 4. 添加缺失的导入
+    if 'import bpy' not in fixed_code:
+        fixed_code = 'import bpy\n' + fixed_code
+    
+    # 检查是否使用了bmesh但没有导入
+    if 'bmesh' in fixed_code and 'import bmesh' not in fixed_code:
+        fixed_code = 'import bmesh\n' + fixed_code
+    
+    # 检查是否使用了math但没有导入
+    if ('math.sin' in fixed_code or 'math.cos' in fixed_code or 'math.pi' in fixed_code) and 'import math' not in fixed_code:
+        fixed_code = 'import math\n' + fixed_code
+    
+    # 5. 确保有log函数定义
+    if 'log(' in fixed_code and 'def log' not in fixed_code:
+        log_func = "\ndef log(message):\n    print(f\"Log: {message}\", flush=True)\n"
+        # 在导入语句之后添加log函数
+        import_end = 0
+        for i, line in enumerate(fixed_code.split('\n')):
+            if line.startswith('import ') or line.startswith('from '):
+                import_end = i
+        
+        lines = fixed_code.split('\n')
+        lines.insert(import_end + 1, log_func)
+        fixed_code = '\n'.join(lines)
+    
+    return fixed_code
