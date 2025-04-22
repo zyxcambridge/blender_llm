@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import os
+import sys
 import json
 import requests
 import re
@@ -115,7 +116,7 @@ def generate_blender_code(prompt_text):
 
     用户描述: {prompt_text}
 
-    生成的代码必须���足以下要求：
+    生成的代码必须满足以下要求：
     1. 必须创建至少一个可见的3D对象：使用mesh.new()、object.add()等方法创建实际可见的几何体
     2. 必须为创建的对象设置合理的尺寸、位置和材质
     3. 力学原理检测：确保模型的结构符合基本力学原理，如重心平衡、支撑结构合理等
@@ -131,35 +132,6 @@ def generate_blender_code(prompt_text):
     5. 定义检测函数，验证模型的力学原理、物理原理、外观和结构
     6. 定义主函数来调用所有创建函数和检测函数
     7. 执行主函数
-
-    以下是创建基本3D对象的示例代码片段，请在生成代码时参考：
-
-    ```python
-    # 创建一个立方体
-    def create_cube(name, location, size):
-        bpy.ops.mesh.primitive_cube_add(size=size, location=location)
-        cube = bpy.context.active_object
-        cube.name = name
-        return cube
-
-    # 创建一个圆柱体
-    def create_cylinder(name, location, radius, height):
-        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=height, location=location)
-        cylinder = bpy.context.active_object
-        cylinder.name = name
-        return cylinder
-
-    # 创建一个自定义网格
-    def create_custom_mesh(name, verts, faces, location):
-        mesh = bpy.data.meshes.new(name + "_mesh")
-        obj = bpy.data.objects.new(name, mesh)
-        bpy.context.collection.objects.link(obj)
-        mesh.from_pydata(verts, [], faces)
-        mesh.update()
-        obj.location = location
-        return obj
-    ```
-
     请避免以下Blender脚本开发中的常见错误：
 
     1. 不要使用 if __name__ == "__main__" 结构：
@@ -323,6 +295,7 @@ def fix_common_code_issues(code):
 
     code = re.sub(r'clip_end\s*=\s*(?:True|False|\d+\.\d+|\d+)', '', code)
 
+    # 修复 torus 参数名称问题
     code = re.sub(
         r'bpy\.ops\.mesh\.primitive_torus_add\s*\(\s*radius\s*=([^,]+),\s*tube\s*=([^,]+)',
         r'bpy.ops.mesh.primitive_torus_add(major_radius=\1, minor_radius=\2',
@@ -340,6 +313,40 @@ def fix_common_code_issues(code):
         r'bpy.ops.mesh.primitive_torus_add(minor_radius=\1, major_radius=\2',
         code,
     )
+
+    # 移除 Blender 4.1+ 中不再支持的参数
+    # 移除 enter_editmode 参数
+    code = re.sub(
+        r'(bpy\.ops\.mesh\.[a-zA-Z0-9_]+_add\s*\([^\)]*),\s*enter_editmode\s*=\s*(?:True|False)([^\)]*\))',
+        r'\1\2',
+        code,
+    )
+
+    # 移除 align 参数
+    code = re.sub(
+        r'(bpy\.ops\.mesh\.[a-zA-Z0-9_]+_add\s*\([^\)]*),\s*align\s*=\s*[\'"](?:WORLD|VIEW|CURSOR)[\'"]([^\)]*\))',
+        r'\1\2',
+        code,
+    )
+
+    # 处理中文变量名，将其替换为英文变量名并添加注释
+    chinese_var_patterns = [
+        (r'\b角色名\b', 'character_name'),  # 角色名
+        (r'\b头部形状\b', 'head_shape'),  # 头部形状
+        (r'\b耳朵形状\b', 'ear_shape'),  # 耳朵形状
+        (r'\b眼睛形状\b', 'eye_shape'),  # 眼睛形状
+        (r'\b嘴巴形状\b', 'mouth_shape'),  # 嘴巴形状
+        (r'\b手臂形状\b', 'arm_shape'),  # 手臂形状
+        (r'\b腿部形状\b', 'leg_shape'),  # 腿部形状
+        # 可以根据需要添加更多的中文变量名模式
+    ]
+
+    # 检测中文变量名并替换
+    for pattern, replacement in chinese_var_patterns:
+        if re.search(pattern, code):
+            # 如果发现中文变量名，替换所有实例
+            code = re.sub(pattern, replacement, code)
+            print(f"[Gemini Execution] 已将中文变量名 '{pattern}' 替换为 '{replacement}'")
 
     lines = code.split('\n')
     fixed_lines = []
@@ -384,389 +391,53 @@ def fix_common_code_issues(code):
     return fixed_code
 
 
-def execute_blender_code(code):
+def execute_blender_code(code: str):
+    print("\n--- [AI Code Execution] ---")
+    print("准备执行以下代码:")
+    print("-" * 20)
+    # 只打印代码片段，避免控制台过长
+    code_lines = code.strip().split('\n')
+    print('\n'.join(code_lines[:15]) + ('\n...' if len(code_lines) > 15 else ''))
+    print("-" * 20)
+    sys.stdout.flush()  # 确保立即打印
 
-    if not isinstance(code, str) or not code.strip():
-        print("[Gemini Execution] 错误: 提供的代码为空或无效。", flush=True)
-        return False, "无法执行空代码"
+    success = False
+    result_message = "代码执行未开始。"
+
+    # 确保代码不是 None 或空字符串 (虽然空字符串执行不会出错)
+    if not code or not code.strip():
+        print("[AI Code Execution] 接收到空代码，跳过执行。", flush=True)
+        return True, "无代码执行。"  # 可以视为空代码执行成功
 
     try:
-        # 修复代码中的常见问题
-        fixed_code = fix_common_code_issues(code)
-        if fixed_code != code:
-            print("[Gemini Execution] 已自动修复代码中的常见问题", flush=True)
-            code = fixed_code
+        # exec() 在当前全局和局部命名空间中执行代码。
+        # 显式传递 globals() 确保它可以访问 bpy 等模块。
+        # 注意：这会直接修改当前的 Blender 状态。
+        exec(code, globals())
 
-        # 创建一个新的文本数据块来存储代码
-        text_name = "gemini_generated_code"  # Consistent name
-        if text_name in bpy.data.texts:
-            text_block = bpy.data.texts[text_name]
-            text_block.clear()
-        else:
-            text_block = bpy.data.texts.new(text_name)
+        success = True
+        result_message = "脚本执行成功完成。"
+        print(f"[AI Code Execution] {result_message}", flush=True)
 
-        # 写入代码
-        text_block.write(code)
-        print(f"\n[Gemini Execution] 代码已写入 Blender 文本编辑器 '{text_name}'", flush=True)
-
-        # --- 代码保存到本地文件 ---
-        try:
-            # 确保在函数内部可以访问到re模块
-            import re
-
-            save_dir = get_code_save_directory()  # Use the getter to get absolute path
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-
-            # 使用固定的文件名
-            file_name = "gemini_latest_code.py"
-            file_path = os.path.join(save_dir, file_name)
-
-            # 获取模型名称用于文件头部注释
-            model_name_part = "gemini"  # Default
-            match = re.search(r'/models/([^:]+):', GEMINI_API_URL)
-            if match:
-                model_name_part = match.group(1).replace("/", "_")  # Sanitize slashes if any
-
-            # Ensure directory exists (get_code_save_directory should handle cwd case)
-            os.makedirs(save_dir, exist_ok=True)
-
-            # 写入固定文件名的文件
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(f"# Generated by: {model_name_part}\n")
-                f.write(f"# Timestamp: {timestamp}\n")
-                f.write(f"# This is the latest generated code (fixed filename)\n\n")
-                f.write(code)
-
-            print(f"[Gemini Execution] 代码已保存到固定文件: {file_path}", flush=True)
-
-            # 打印文件内容
-            print("\n[Gemini Execution] 固定文件内容:\n" + "-" * 50, flush=True)
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    file_content = f.read()
-                    print(file_content, flush=True)
-                print("-" * 50, flush=True)
-            except Exception as e:
-                print(f"[Gemini Execution] 读取文件内容时出错: {str(e)}", flush=True)
-        except OSError as e:
-            print(f"[Gemini Execution] 保存代码到本地文件时发生 OS 错误: {str(e)} (检查权限和路径?)", flush=True)
-        except Exception as e:
-            print(f"[Gemini Execution] 保存代码到本地文件时出错: {str(e)}", flush=True)
-            # Non-fatal, continue execution attempt
-
-        # --- 执行准备 ---
-        objects_before = set(obj.name for obj in bpy.data.objects)
-        materials_before = set(mat.name for mat in bpy.data.materials)
-        meshes_before = set(mesh.name for mesh in bpy.data.meshes)
-        print(
-            f"[Gemini Execution] 执行前: {len(objects_before)} 对象, {len(materials_before)} 材质, {len(meshes_before)} 网格",
-            flush=True,
-        )
-
-        # --- 执行代码 ---
-        print("\n[Gemini Execution] 开始执行生成的代码...", flush=True)
-        # Use a dedicated namespace, pass necessary globals like bpy
-        exec_globals = {
-            'bpy': bpy,
-            '__file__': text_block.filepath if text_block.filepath else text_name,  # Provide context
-            # 添加log函数到执行环境中
-            'log': lambda msg: print(f"Log: {msg}", flush=True),
-            # Add other modules if the generated code consistently needs them
-            'math': math,
-            'bmesh': bmesh,
-        }
-        exec_locals = {}  # Separate local scope for the executed code
-        compiled_code = compile(code, text_name, 'exec')
-        exec(compiled_code, exec_globals, exec_locals)
-        print("[Gemini Execution] 代码执行初步完成 (无显式异常)", flush=True)
-
-        # --- 后处理和验证 ---
-        bpy.context.view_layer.update()  # Crucial: Update Blender's internal state
-
-        objects_after = set(obj.name for obj in bpy.data.objects)
-        materials_after = set(mat.name for mat in bpy.data.materials)
-        meshes_after = set(mesh.name for mesh in bpy.data.meshes)
-
-        new_objects = objects_after - objects_before
-        new_materials = materials_after - materials_before
-        new_meshes = meshes_after - meshes_before
-
-        print(
-            f"[Gemini Execution] 执行后: {len(objects_after)} 对象, {len(materials_after)} 材质, {len(meshes_after)} 网格",
-            flush=True,
-        )
-        # Provide more detail on what was created
-        log_details = []
-        if new_objects:
-            log_details.append(f"{len(new_objects)} 新对象: {', '.join(sorted(list(new_objects)))}")
-        if new_materials:
-            log_details.append(f"{len(new_materials)} 新材质: {', '.join(sorted(list(new_materials)))}")
-        if new_meshes:
-            log_details.append(f"{len(new_meshes)} 新网格: {', '.join(sorted(list(new_meshes)))}")
-
-        if log_details:
-            print(f"[Gemini Execution] 检测到新增数据: {'; '.join(log_details)}", flush=True)
-        else:
-            # Check for modified objects/data if needed, but new is the primary goal
-            print("[Gemini Execution] 未检测到新增对象、材质或网格。", flush=True)
-
-        # --- 处理结果 ---
-        if not new_objects and not new_meshes:
-            # Code ran, but didn't create expected results
-            print(
-                "[Gemini Execution] 警告: 代码执行完成，但未创建可见的新网格或对象。请检查代码逻辑和Blender控制台输出。",
-                flush=True,
-            )
-            # Check for hidden objects again
-            hidden_objects = [
-                obj.name
-                for obj in bpy.data.objects
-                if (obj.hide_viewport or obj.hide_get()) and obj.name in objects_after
-            ]
-            if hidden_objects:
-                print(f"[Gemini Execution] 注意: 场景中可能存在隐藏的对象: {', '.join(hidden_objects)}", flush=True)
-
-            # Check locals from execution for potential clues
-            potential_vars = []
-            for var_name, var_value in exec_locals.items():
-                if isinstance(var_value, (bpy.types.Object, bpy.types.Mesh, bpy.types.Material)):
-                    potential_vars.append(
-                        f"{var_name} ({type(var_value).__name__}: {getattr(var_value, 'name', '未命名')})"
-                    )
-            if potential_vars:
-                print(
-                    f"[Gemini Execution] 在代码执行作用域中发现的潜在相关变量: {', '.join(potential_vars)}", flush=True
-                )
-
-            return True, "代码执行成功，但未创建新对象。请检查Blender场景和控制台日志。"  # Still successful execution
-
-        # --- 选择新对象 ---
-        if new_objects:
-            # Ensure object mode
-            if bpy.context.active_object and bpy.context.active_object.mode != 'OBJECT':
-                try:
-                    bpy.ops.object.mode_set(mode='OBJECT')
-                except RuntimeError as e:
-                    print(
-                        f"[Gemini Execution] 切换到对象模式失败: {e}", flush=True
-                    )  # Might fail if no active object or context issue
-
-            # Deselect all first
-            try:
-                bpy.ops.object.select_all(action='DESELECT')
-            except RuntimeError as e:
-                print(f"[Gemini Execution] 取消全选失败: {e}", flush=True)  # Less critical
-
-            last_selected_obj = None
-            selected_count = 0
-            for obj_name in new_objects:
-                obj = bpy.data.objects.get(obj_name)  # Use .get() for safety
-                if obj:
-                    try:
-                        obj.select_set(True)
-                        last_selected_obj = obj
-                        selected_count += 1
-                    except Exception as e:  # Catch potential errors during selection
-                        print(f"[Gemini Execution] 选择对象 '{obj_name}' 时出错: {e}", flush=True)
-
-            if last_selected_obj:
-                try:
-                    bpy.context.view_layer.objects.active = last_selected_obj
-                    print(
-                        f"[Gemini Execution] 已选择 {selected_count} 个新创建的对象，活动对象设为 '{last_selected_obj.name}'",
-                        flush=True,
-                    )
-                except Exception as e:
-                    print(f"[Gemini Execution] 设置活动对象时出错: {e}", flush=True)
-            elif selected_count > 0:
-                print(f"[Gemini Execution] 已选择 {selected_count} 个新创建的对象，但无法设置活动对象。", flush=True)
-            else:
-                print("[Gemini Execution] 尝试选择新对象，但未找到有效的对象实例或选择失败。", flush=True)
-
-        return True, f"代码执行成功，创建了 {len(new_objects)} 个新对象"
-
-    # --- 详细的异常处理 ---
-    except SyntaxError as e:
-        line_no = e.lineno if hasattr(e, 'lineno') else '未知'
-        offset = e.offset if hasattr(e, 'offset') else '未知'
-        error_text = e.text.strip() if hasattr(e, 'text') and e.text else '(无可用文本)'
-        error_msg = (
-            f"代码语法错误 (行 {line_no}, 列 {offset}): {str(e)}\n"
-            f"--> 出错代码行: {error_text}\n"
-            f"{traceback.format_exc()}"
-        )
-        print(f"[Gemini Execution] {error_msg}", flush=True)
-        return False, f"代码语法错误 (行 {line_no}): {str(e)}"  # Simpler message for UI maybe
-    except NameError as e:
-        tb_info = traceback.extract_tb(e.__traceback__)
-        line_no = tb_info[-1].lineno if tb_info else '未知'
-        line_content = tb_info[-1].line if tb_info else '(无可用代码行)'
-
-        # 提取未定义的函数或变量名
-        undefined_name = str(e).replace("name '", "").replace("' is not defined", "")
-
-        # 检查是否是函数调用
-        is_function_call = False
-        if line_content and '(' in line_content and ')' in line_content and undefined_name in line_content:
-            is_function_call = True
-
-        # 生成更有用的错误消息
-        if is_function_call:
-            suggestion = f"请检查代码中是否定义了函数 '{undefined_name}'\n"
-            suggestion += "常见原因:\n"
-            suggestion += "1. 函数名称拼写错误\n"
-            suggestion += "2. 函数定义在主函数调用之后\n"
-            suggestion += "3. 函数定义在条件分支中没有被执行"
-        else:
-            suggestion = f"请检查代码中是否定义了变量 '{undefined_name}'"
-
-        error_msg = (
-            f"名称错误 (未定义变量/函数) (行 {line_no}): {str(e)}\n"
-            f"--> 相关代码: {line_content}\n"
-            f"{traceback.format_exc()}\n"
-            f"建议: {suggestion}"
-        )
-        print(f"[Gemini Execution] {error_msg}", flush=True)
-        return False, f"名称错误 (行 {line_no}): {str(e)}\n建议: {suggestion}"
-    except AttributeError as e:
-        tb_info = traceback.extract_tb(e.__traceback__)
-        line_no = tb_info[-1].lineno if tb_info else '未知'
-        line_content = tb_info[-1].line if tb_info else '(无可用代码行)'
-
-        # 尝试提取对象和属性名
-        error_str = str(e)
-        obj_name = ""
-        attr_name = ""
-
-        # 常见的错误模式: "'X' object has no attribute 'Y'"
-        import re
-
-        match = re.search(r"'([^']+)' object has no attribute '([^']+)'", error_str)
-        if match:
-            obj_name = match.group(1)
-            attr_name = match.group(2)
-
-        # 生成更有用的错误消息
-        suggestion = "常见原因:\n"
-        if obj_name and attr_name:
-            suggestion += f"1. '{obj_name}'类型的对象没有'{attr_name}'属性\n"
-            suggestion += f"2. 可能需要先创建或初始化该属性\n"
-
-            # 对于常见的Blender对象类型提供特定建议
-            if obj_name == "Context":
-                suggestion += f"3. 在Blender中使用bpy.context时，请确保在正确的上下文中访问'{attr_name}'\n"
-                suggestion += "4. 某些属性只在特定模式或特定编辑器中可用"
-            elif obj_name == "Object":
-                suggestion += "3. 对于Blender对象，请检查官方文档中的有效属性"
-            elif obj_name == "NoneType":
-                suggestion += "3. 对象为None，可能是因为某个函数返回了None或某个对象没有被正确创建"
-        else:
-            suggestion += "1. 对象类型与您尝试访问的属性不匹配\n"
-            suggestion += "2. 对象可能为None或未正确初始化\n"
-            suggestion += "3. 在Blender中，某些属性只在特定模式或特定上下文中可用"
-
-        error_msg = (
-            f"属性错误 (对象缺少属性/方法) (行 {line_no}): {str(e)}\n"
-            f"--> 相关代码: {line_content}\n"
-            f"{traceback.format_exc()}\n"
-            f"建议: {suggestion}"
-        )
-        print(f"[Gemini Execution] {error_msg}", flush=True)
-        return False, f"属性错误 (行 {line_no}): {str(e)}\n建议: {suggestion}"
-    except RuntimeError as e:
-        # Catch Blender specific runtime errors (often context related)
-        tb_info = traceback.extract_tb(e.__traceback__)
-        line_no = tb_info[-1].lineno if tb_info else '未知'
-        line_content = tb_info[-1].line if tb_info else '(无可用代码行)'
-
-        # 分析错误消息，提供特定建议
-        error_str = str(e)
-        suggestion = ""
-
-        # 处理常见的Blender运行时错误
-        if "context" in error_str.lower():
-            suggestion = "这是上下文相关的错误，常见原因:\n"
-            suggestion += "1. 在错误的模式下调用了操作符（如在编辑模式下调用了需要对象模式的操作）\n"
-            suggestion += "2. 尝试在操作前使用 bpy.ops.object.mode_set(mode='OBJECT') 切换到对象模式\n"
-            suggestion += "3. 确保在执行操作前有活动对象和正确的选择"
-        elif "no active object" in error_str.lower():
-            suggestion = "没有活动对象，常见原因:\n"
-            suggestion += "1. 在执行需要活动对象的操作前，没有设置活动对象\n"
-            suggestion += "2. 使用 bpy.context.view_layer.objects.active = your_object 设置活动对象"
-        elif "must be in edit mode" in error_str.lower():
-            suggestion = "需要在编辑模式下执行此操作，常见原因:\n"
-            suggestion += "1. 在执行编辑模式操作前，没有切换到编辑模式\n"
-            suggestion += "2. 使用 bpy.ops.object.mode_set(mode='EDIT') 切换到编辑模式\n"
-            suggestion += "3. 操作完成后，记得切换回对象模式: bpy.ops.object.mode_set(mode='OBJECT')"
-        elif "must be in object mode" in error_str.lower():
-            suggestion = "需要在对象模式下执行此操作，常见原因:\n"
-            suggestion += "1. 在执行对象模式操作前，没有切换到对象模式\n"
-            suggestion += "2. 使用 bpy.ops.object.mode_set(mode='OBJECT') 切换到对象模式"
-        else:
-            suggestion = "常见原因:\n"
-            suggestion += "1. 操作的上下文不正确（模式、选择或活动对象问题）\n"
-            suggestion += "2. 操作符参数不正确或不兼容\n"
-            suggestion += "3. Blender的内部状态与操作不兼容"
-
-        error_msg = (
-            f"Blender 运行时错误 (行 {line_no}): {str(e)} (通常与操作的上下文有关)\n"
-            f"--> 相关代码: {line_content}\n"
-            f"{traceback.format_exc()}\n"
-            f"建议: {suggestion}"
-        )
-        print(f"[Gemini Execution] {error_msg}", flush=True)
-        return False, f"Blender 运行时错误 (行 {line_no}): {str(e)}\n建议: {suggestion}"
+    except SyntaxError as syn_err:
+        success = False
+        # 对于语法错误， traceback 可能不够详细，直接格式化错误信息
+        error_info = f"语法错误:\n  错误: {syn_err.msg}\n  行号: {syn_err.lineno}\n  位置: {syn_err.offset}\n  代码行: '{syn_err.text.rstrip()}'"
+        result_message = f"❌ 脚本执行失败 (SyntaxError):\n{error_info}"
+        print(f"[AI Code Execution] {result_message}", flush=True)
     except Exception as e:
-        # Generic catch-all for other errors
-        tb_info = traceback.extract_tb(e.__traceback__)
-        line_no = tb_info[-1].lineno if tb_info else '未知'
-        line_content = tb_info[-1].line if tb_info else '(无可用代码行)'
+        success = False
+        # 使用 traceback.format_exc() 获取完整的错误堆栈信息
+        error_traceback = traceback.format_exc()
+        result_message = f"❌ 脚本执行失败:\n{error_traceback}"
+        # 打印到控制台以便调试
+        print(f"[AI Code Execution] 发生运行时错误:", flush=True)
+        print(error_traceback, flush=True)
 
-        # 分析错误类型，提供特定建议
-        error_type = type(e).__name__
-        error_str = str(e)
-        suggestion = ""
+    finally:
+        print("--- [AI Code Execution End] ---", flush=True)
 
-        # 根据错误类型提供建议
-        if error_type == "TypeError":
-            suggestion = "类型错误，常见原因:\n"
-            suggestion += "1. 函数参数类型不正确\n"
-            suggestion += "2. 尝试对错误类型的对象执行操作\n"
-            suggestion += "3. 在Blender中，可能是传递了错误类型的参数给bpy.ops函数"
-
-            # 检查是否是参数问题
-            if "takes" in error_str and "positional argument" in error_str:
-                suggestion += "\n4. 函数参数数量不正确，检查函数调用的参数个数"
-            elif "keyword" in error_str and "unrecognized" in error_str:
-                suggestion += "\n4. 使用了不存在的关键字参数，检查函数文档中的有效参数"
-        elif error_type == "ValueError":
-            suggestion = "值错误，常见原因:\n"
-            suggestion += "1. 传递给函数的值不在允许的范围内\n"
-            suggestion += "2. 尝试转换不兼容的数据类型\n"
-            suggestion += "3. 在Blender中，可能是传递了无效的值给某个函数"
-        elif error_type == "KeyError":
-            suggestion = "键错误，常见原因:\n"
-            suggestion += "1. 尝试访问字典中不存在的键\n"
-            suggestion += "2. 在Blender中，可能是尝试访问不存在的对象、集合或属性"
-        elif error_type == "IndexError":
-            suggestion = "索引错误，常见原因:\n"
-            suggestion += "1. 尝试访问列表或数组中超出范围的索引\n"
-            suggestion += "2. 在空列表上使用索引\n"
-            suggestion += "3. 在Blender中，可能是尝试访问不存在的顶点、边或面"
-        else:
-            suggestion = "常见原因:\n"
-            suggestion += "1. 代码逻辑错误\n"
-            suggestion += "2. 使用了不兼容的API或函数\n"
-            suggestion += "3. 在Blender中，可能是由于版本差异导致的API变化"
-
-        error_msg = (
-            f"执行代码时发生意外错误 (行 {line_no}): {error_type} - {error_str}\n"
-            f"--> 相关代码: {line_content}\n"
-            f"{traceback.format_exc()}\n"
-            f"建议: {suggestion}"
-        )
-        print(f"[Gemini Execution] {error_msg}", flush=True)
-        return False, f"执行时发生意外错误 (行 {line_no}): {error_type}\n建议: {suggestion}"
+    return success, result_message
 
 
 def send_message_to_gemini(message, conversation_history=None, is_refinement=False):
