@@ -265,20 +265,6 @@ class AI_OT_send_message(bpy.types.Operator):
                     print(f"保存代码时出错: {save_e}", flush=True)
                     ai_response_text += f"\n⚠️ 保存代码时出错: {save_e}"
 
-                print("--- 测试 execute_blender_code ---")
-
-                # 1. 测试成功代码
-                print("\n测试 1: 成功代码")
-                code_success = """
-                                import bpy
-                                print("Hello from executed code!")
-                                # 创建一个立方体
-                                bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, 5))
-                                print("Cube created.")
-                                """
-                s, r = ai_gemini_integration.execute_blender_code(code_success)
-                print(f"Test 1 Result: Success={s}, Message='{r[:100]}...'")  # 截断长消息
-
                 exec_success, exec_result = ai_gemini_integration.execute_blender_code(generated_code)
                 if exec_success:
                     ai_response_text += f"\n✅ 代码执行结果: {exec_result}"
