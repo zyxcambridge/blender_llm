@@ -8,14 +8,10 @@ make -j16 && /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Cont
 /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Contents/MacOS/Blender
 
 程序一打开 ， Blender AI助手 的面板就是 打开的，且 始终在前端显示，一直显示再前端，任何操都不会隐藏 这个面板
-
-
-Blender AI助手 点开后的界面优化： 只要3部分，
+只要4部分，
 1. 标题： 保留Blender AI助手-智能助手
 2. 用户需求记录区：记录多次请求的记录；保留 操作记录/信息输出区
 3. 用户需求输入文本区，生成 执行blender python脚本 按钮；保留 输入栏+发送按钮
-多余的代码全部删除
-
 4. 增加 执行blenderpython脚本 按钮；
 
 

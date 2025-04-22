@@ -1,32 +1,32 @@
-# SPDX-FileCopyrightText: 2023 Blender Authors
-#
-# SPDX-License-Identifier: GPL-2.0-or-later
-
 import sys
 import os
 import json
 import traceback
 import bpy
+import ai_gemini_integration
+
 from bpy.types import (
     Panel,
     PropertyGroup,
-    # UIList, # Not currently used directly in panel drawing
 )
 from bpy.props import (
-    # EnumProperty, # Not used
     StringProperty,
     CollectionProperty,
     IntProperty,
     BoolProperty,
+    PointerProperty,
 )
-
-
-# --- Configuration Loading ---
 
 
 def load_config():
     """从JSON配置文件加载设置"""
-    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "ai_assistant_config.json")
+    config_path = ""
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(script_dir, "ai_assistant_config.json")
+    except NameError:
+        print("无法确定脚本目录以查找 ai_assistant_config.json", flush=True)
+
     default_config = {
         "default_prompts": {
             "cartoon_character": "为一个名为「小兔子」的卡通角色创建完整3D模型...",
@@ -35,29 +35,34 @@ def load_config():
         },
         "script_filename": "gemini_latest_code.py",
     }
-    config = default_config
-    try:
-        if os.path.exists(config_path):
+    config = default_config.copy()
+
+    if config_path and os.path.exists(config_path):
+        try:
             with open(config_path, 'r', encoding='utf-8') as f:
                 loaded_config = json.load(f)
-                config.update(loaded_config)
-                print(f"配置已加载: {config_path}", flush=True)
-        else:
+                for key, default_value in default_config.items():
+                    if key in loaded_config:
+                        if isinstance(default_value, dict) and isinstance(loaded_config[key], dict):
+                            config[key].update(loaded_config[key])
+                        else:
+                            config[key] = loaded_config[key]
+            print(f"配置已加载: {config_path}", flush=True)
+        except json.JSONDecodeError as e:
+            print(f"加载配置文件JSON解析错误: {e}，路径: {config_path}，使用默认配置。", flush=True)
+        except Exception as e:
+            print(f"加载配置文件时发生未知错误: {e}，路径: {config_path}，使用默认配置。", flush=True)
+    else:
+        if config_path:
             print(f"配置文件不存在: {config_path}，使用默认配置。", flush=True)
-    except json.JSONDecodeError as e:
-        print(f"加载配置文件JSON解析错误: {e}，使用默认配置。", flush=True)
-        config = default_config
-    except Exception as e:
-        print(f"加载配置文件时发生未知错误: {e}，使用默认配置。", flush=True)
-        config = default_config
+        else:
+            print("未找到配置文件路径，使用默认配置。", flush=True)
+
     return config
 
 
 CONFIG = load_config()
 SCRIPT_FILENAME = CONFIG.get("script_filename", "gemini_latest_code.py")
-
-
-# --- Properties ---
 
 
 class AIMessageItem(PropertyGroup):
@@ -71,17 +76,15 @@ class AIAssistantProperties(PropertyGroup):
     active_message_index: IntProperty(default=-1)
     keep_open: BoolProperty(default=True)
     use_pin: BoolProperty(default=True)
-    mode: StringProperty(default="AGENT")  # Keep internal mode
-
-
-# --- Main Panel (in 3D View Sidebar with Chinese Labels) ---
+    mode: StringProperty(default="AGENT")
 
 
 class VIEW3D_PT_ai_assistant(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "Blender AI助手"  # <<< Changed: Sidebar Tab Name (Chinese)
-    bl_label = "Blender AI助手"  # <<< Changed: Panel Title (Chinese)
+    bl_category = "Blender AI助手"
+    bl_label = "Blender AI助手-智能助手"
+    bl_options = {'HIDE_HEADER'}
 
     @classmethod
     def poll(cls, context):
@@ -91,34 +94,40 @@ class VIEW3D_PT_ai_assistant(Panel):
         if hasattr(context.scene, "ai_assistant"):
             ai_props = context.scene.ai_assistant
             layout = self.layout
-            layout.prop(ai_props, "use_pin", text="", icon='PINNED' if ai_props.use_pin else 'UNPINNED', emboss=False)
-            # Label set by bl_label
+            # Make sure the property exists before trying to access it
+            if hasattr(ai_props, "use_pin"):
+                layout.prop(
+                    ai_props, "use_pin", text="", icon='PINNED' if ai_props.use_pin else 'UNPINNED', emboss=False
+                )
+            else:
+                print("Warning: 'use_pin' property not found in AIAssistantProperties", flush=True)
 
     def draw(self, context):
         layout = self.layout
         if not hasattr(context.scene, "ai_assistant"):
-            layout.label(text="Blender AI助手尚未初始化。")  # <<< Changed
+            layout.label(text="Blender AI助手尚未初始化。")
             row = layout.row()
-            # Keep operator ID english, but label chinese
-            row.operator("ai.initialize", text="初始化 Blender AI助手", icon='FILE_REFRESH')  # <<< Changed
+            row.operator("ai.initialize", text="初始化 Blender AI助手", icon='FILE_REFRESH')
             return
 
-        # Debug button
+        # 1. 标题区
+        title_box = layout.box()
+        title_row = title_box.row()
+        title_row.label(text="Blender AI助手-智能助手", icon='LIGHT')
+
+        # 如果在调试模式下，显示重新初始化按钮
         if bpy.app.debug:
-            row = layout.row(align=True)
-            row.operator("ai.initialize", text="重新初始化", icon='FILE_REFRESH')  # <<< Changed
-            # row.operator("ai.debug", text="调试", icon='CONSOLE') # Optional debug button
+            debug_row = layout.row(align=True)
+            debug_row.operator("ai.initialize", text="重新初始化", icon='FILE_REFRESH')
 
 
-# --- Child Panel for Input/History ---
-# This contains the main UI elements drawn within the parent panel
 class VIEW3D_PT_ai_assistant_input(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "Blender AI助手"  # <<< Changed: Match Parent Category
+    bl_category = "Blender AI助手"
     bl_parent_id = VIEW3D_PT_ai_assistant.__name__
-    bl_options = {'HIDE_HEADER'}  # Hide this sub-panel's header
-    bl_label = "输入与历史"  # Internal label if header wasn't hidden
+    bl_options = {'HIDE_HEADER', 'DEFAULT_CLOSED'}
+    bl_label = "Blender AI助手-智能助手"
 
     @classmethod
     def poll(cls, context):
@@ -128,10 +137,10 @@ class VIEW3D_PT_ai_assistant_input(Panel):
         layout = self.layout
         ai_props = context.scene.ai_assistant
 
-        # --- History Section ---
+        # 2. 用户需求记录区
         history_box = layout.box()
         history_header = history_box.row(align=True)
-        history_header.label(text="历史记录", icon='INFO')  # <<< Changed
+        history_header.label(text="操作记录/信息输出区", icon='INFO')
         history_header.operator("ai.clear_history", text="", icon='TRASH', emboss=False)
 
         if len(ai_props.messages) > 0:
@@ -141,52 +150,48 @@ class VIEW3D_PT_ai_assistant_input(Panel):
             for i in range(start_idx, len(ai_props.messages)):
                 msg = ai_props.messages[i]
                 row = history_content_box.row()
-                prefix = "[用户] " if msg.is_user else "[AI] "  # <<< Changed
+                prefix = "[用户] " if msg.is_user else "[AI] "
                 icon = 'USER' if msg.is_user else ('ERROR' if '❌' in msg.text else 'LIGHT')
                 display_text = msg.text.splitlines()[0]
                 if len(display_text) > 80:
                     display_text = display_text[:77] + "..."
                 row.label(text=prefix + display_text, icon=icon)
         else:
-            history_box.label(text="暂无消息。")  # <<< Changed
+            history_box.label(text="暂无消息。")
 
-        # --- Input Section ---
+        # 3. 用户需求输入文本区
         input_box = layout.box()
-        input_box.label(text="输入提示:", icon='CONSOLE')  # <<< Changed
+        input_box.label(text="输入提示:", icon='CONSOLE')
         row_input = input_box.row()
-        placeholder = CONFIG.get("default_prompts", {}).get("placeholder_short", "描述模型...")
+        placeholder = CONFIG.get("default_prompts", {}).get("placeholder_short", "描述你想创建的模型...")
         row_input.prop(ai_props, "message", text="", placeholder=placeholder)
 
-        # --- Action Buttons ---
+        # 4. 按钮区
         button_row = layout.row(align=True)
-        button_row.scale_y = 1.3
-        # Send Button
-        button_row.operator("ai.send_message", text="发送给AI", icon='PLAY')  # <<< Changed
-        # Execute Button
-        button_row.operator("ai.execute_script", text="执行上次脚本", icon='SCRIPTPLUGINS')  # <<< Changed
+        button_row.scale_y = 1.5  # 增大按钮高度
+        button_row.operator("ai.send_message", text="发送给AI", icon='PLAY')
 
-
-# --- Operators (Update Labels/Descriptions) ---
+        # 执行 Blender Python 脚本按钮
+        execute_row = layout.row(align=True)
+        execute_row.scale_y = 1.5  # 增大按钮高度
+        execute_row.operator("ai.execute_script", text="执行脚本 (类似Alt+P)", icon='SCRIPTPLUGINS')
 
 
 class AI_OT_initialize(bpy.types.Operator):
     bl_idname = "ai.initialize"
-    bl_label = "初始化 Blender AI助手"  # <<< Changed
-    bl_description = "初始化 Blender AI助手属性组"  # <<< Changed
+    bl_label = "初始化 Blender AI助手"
+    bl_description = "初始化 Blender AI助手属性组"
 
     def execute(self, context):
         print("\n==== Initializing AI Assistant ====", flush=True)
         try:
-            # Ensure PropertyGroup class is registered
             if AIAssistantProperties.__name__ not in bpy.context.window_manager.bl_rna.properties:
                 if not hasattr(bpy.types, AIAssistantProperties.__name__):
                     bpy.utils.register_class(AIAssistantProperties)
 
-            # Ensure PointerProperty exists on Scene
             if not hasattr(bpy.types.Scene, "ai_assistant"):
-                bpy.types.Scene.ai_assistant = bpy.props.PointerProperty(type=AIAssistantProperties)
+                bpy.types.Scene.ai_assistant = PointerProperty(type=AIAssistantProperties)
 
-            # Initialize values
             ai_props = context.scene.ai_assistant
             ai_props.keep_open = True
             ai_props.use_pin = True
@@ -196,11 +201,11 @@ class AI_OT_initialize(bpy.types.Operator):
             ai_props.mode = "AGENT"
             print("Initialized ai_assistant properties (keep_open=True, use_pin=True)", flush=True)
         except Exception as e:
-            self.report({'ERROR'}, f"初始化失败: {e}")  # <<< Changed
+            self.report({'ERROR'}, f"初始化失败: {e}")
             print(f"Error initializing AI Assistant: {traceback.format_exc()}", flush=True)
             return {'CANCELLED'}
 
-        self.report({'INFO'}, "Blender AI助手已初始化")  # <<< Changed
+        self.report({'INFO'}, "Blender AI助手已初始化")
         for window in context.window_manager.windows:
             for area in window.screen.areas:
                 area.tag_redraw()
@@ -209,8 +214,8 @@ class AI_OT_initialize(bpy.types.Operator):
 
 class AI_OT_send_message(bpy.types.Operator):
     bl_idname = "ai.send_message"
-    bl_label = "发送消息"  # <<< Changed
-    bl_description = "发送消息给 Blender AI助手并执行生成的代码"  # <<< Changed
+    bl_label = "发送消息"
+    bl_description = "发送消息给 Blender AI助手并执行生成的代码"
 
     @classmethod
     def poll(cls, context):
@@ -226,19 +231,16 @@ class AI_OT_send_message(bpy.types.Operator):
             )
             ai_props.message = user_input
 
-        # Add user message
         user_msg = ai_props.messages.add()
         user_msg.text = user_input
         user_msg.is_user = True
         ai_props.active_message_index = len(ai_props.messages) - 1
-        ai_props.message = ""  # Clear input
+        ai_props.message = ""
 
-        # Force redraw
         for area in context.screen.areas:
             area.tag_redraw()
 
-        # --- Gemini Integration ---
-        ai_response_text = "处理中..."  # <<< Changed
+        ai_response_text = "处理中..."
         try:
             import ai_gemini_integration
 
@@ -246,70 +248,94 @@ class AI_OT_send_message(bpy.types.Operator):
             success, result = ai_gemini_integration.generate_blender_code(user_input)
 
             if success:
-                print("[Gemini] 代码生成成功。", flush=True)  # <<< Changed
+                print("[Gemini] 代码生成成功。", flush=True)
                 generated_code = result
                 code_snippet = generated_code.strip().split('\n')
                 display_code = "\n".join(code_snippet[:8]) + ("\n..." if len(code_snippet) > 8 else "")
-                ai_response_text = f"✅ 代码已生成:\n```python\n{display_code}\n```\n"  # <<< Changed
+                ai_response_text = f"✅ 代码已生成:\n```python\n{display_code}\n```\n"
 
-                # Save code
                 save_dir = ai_gemini_integration.get_code_save_directory()
                 script_path = os.path.join(save_dir, SCRIPT_FILENAME)
                 try:
                     os.makedirs(save_dir, exist_ok=True)
                     with open(script_path, 'w', encoding='utf-8') as f:
                         f.write(generated_code)
-                    print(f"代码已保存至 {script_path}", flush=True)  # <<< Changed
+                    print(f"代码已保存至 {script_path}", flush=True)
                 except Exception as save_e:
-                    print(f"保存代码时出错: {save_e}", flush=True)  # <<< Changed
-                    ai_response_text += f"\n⚠️ 保存代码时出错: {save_e}"  # <<< Changed
+                    print(f"保存代码时出错: {save_e}", flush=True)
+                    ai_response_text += f"\n⚠️ 保存代码时出错: {save_e}"
 
-                # Execute code
+                print("--- 测试 execute_blender_code ---")
+
+                # 1. 测试成功代码
+                print("\n测试 1: 成功代码")
+                code_success = """
+                                import bpy
+                                print("Hello from executed code!")
+                                # 创建一个立方体
+                                bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, 5))
+                                print("Cube created.")
+                                """
+                s, r = ai_gemini_integration.execute_blender_code(code_success)
+                print(f"Test 1 Result: Success={s}, Message='{r[:100]}...'")  # 截断长消息
+
                 exec_success, exec_result = ai_gemini_integration.execute_blender_code(generated_code)
                 if exec_success:
-                    ai_response_text += f"\n✅ 代码执行结果: {exec_result}"  # <<< Changed
+                    ai_response_text += f"\n✅ 代码执行结果: {exec_result}"
                 else:
-                    ai_response_text += f"\n❌ 代码执行失败: {exec_result}"  # <<< Changed
-                    print(f"[Gemini] 执行错误: {exec_result}", flush=True)  # <<< Changed
+                    ai_response_text += f"\n❌ 代码执行失败: {exec_result}"
+                    print(f"[Gemini] 执行错误: {exec_result}", flush=True)
             else:
-                ai_response_text = f"❌ Gemini API 错误: {result}"  # <<< Changed
-                print(f"[Gemini] API 错误: {result}", flush=True)  # <<< Changed
+                ai_response_text = f"❌ Gemini API 错误: {result}"
+                print(f"[Gemini] API 错误: {result}", flush=True)
 
         except ImportError:
-            ai_response_text = "❌ 系统错误: 无法导入 'ai_gemini_integration'."  # <<< Changed
+            ai_response_text = "❌ 系统错误: 无法导入 'ai_gemini_integration'."
             print(f"[Error] {ai_response_text}", flush=True)
         except Exception as e:
-            ai_response_text = f"❌ 未知错误: {e}"  # <<< Changed
+            ai_response_text = f"❌ 未知错误: {e}"
             print(f"[Error] {ai_response_text}\n{traceback.format_exc()}", flush=True)
 
-        # Add AI response
         ai_msg = ai_props.messages.add()
         ai_msg.text = ai_response_text.strip()
         ai_msg.is_user = False
         ai_props.active_message_index = len(ai_props.messages) - 1
 
-        # Ensure panel stays open
+        # 确保面板保持打开
         ai_props.keep_open = True
         ai_props.use_pin = True
 
-        # Final redraw
+        # 强制刷新所有面板
+        for window in context.window_manager.windows:
+            for area in window.screen.areas:
+                if area.type == 'VIEW_3D':
+                    for region in area.regions:
+                        if region.type == 'UI':
+                            region.tag_redraw()
+
         for area in context.screen.areas:
             area.tag_redraw()
 
-        self.report({'INFO'}, "AI 回应已处理。")  # <<< Changed
+        self.report({'INFO'}, "AI 回应已处理。")
         return {'FINISHED'}
 
 
 class AI_OT_execute_script(bpy.types.Operator):
     bl_idname = "ai.execute_script"
-    bl_label = "执行上次脚本"  # <<< Changed
-    bl_description = f"执行上次生成的脚本 '{SCRIPT_FILENAME}'"  # <<< Changed
+    bl_label = "执行 Blender Python 脚本"
+    bl_description = f"执行 Blender Python 脚本，类似于 Alt+P"
     bl_options = {'REGISTER', 'UNDO'}
 
     _script_path = None
 
     @classmethod
     def poll(cls, context):
+        # 检查是否有文本编辑器打开的脚本
+        for area in context.screen.areas:
+            if area.type == 'TEXT_EDITOR' and area.spaces.active.text:
+                return True
+
+        # 如果没有打开的脚本，检查是否有保存的 gemini_latest_code.py 文件
         if cls._script_path is None or not os.path.exists(cls._script_path):
             try:
                 import ai_gemini_integration
@@ -329,32 +355,50 @@ class AI_OT_execute_script(bpy.types.Operator):
 
     def execute(self, context):
         script_path = ""
+        script_code = ""
+        script_name = ""
+
         try:
             import ai_gemini_integration
 
-            save_dir = ai_gemini_integration.get_code_save_directory()
-            if not save_dir:
-                raise FileNotFoundError("代码保存目录未配置。")  # <<< Changed
-            script_path = os.path.join(save_dir, SCRIPT_FILENAME)
-            if not os.path.exists(script_path):
-                raise FileNotFoundError(f"脚本文件未找到: {script_path}")  # <<< Changed
+            # 首先检查是否有文本编辑器打开的脚本
+            active_text = None
+            for area in context.screen.areas:
+                if area.type == 'TEXT_EDITOR' and area.spaces.active.text:
+                    active_text = area.spaces.active.text
+                    break
 
-            print(f"\n[Execute Script] 执行脚本: {script_path}", flush=True)  # <<< Changed
-            with open(script_path, 'r', encoding='utf-8') as f:
-                script_code = f.read()
+            if active_text:
+                # 使用当前打开的脚本
+                script_code = active_text.as_string()
+                script_name = active_text.name
+                print(f"\n[Execute Script] 执行文本编辑器中的脚本: {script_name}", flush=True)
+            else:
+                # 如果没有打开的脚本，使用保存的 gemini_latest_code.py 文件
+                save_dir = ai_gemini_integration.get_code_save_directory()
+                if not save_dir:
+                    raise FileNotFoundError("代码保存目录未配置。")
+                script_path = os.path.join(save_dir, SCRIPT_FILENAME)
+                if not os.path.exists(script_path):
+                    raise FileNotFoundError(f"脚本文件未找到: {script_path}")
 
+                print(f"\n[Execute Script] 执行脚本文件: {script_path}", flush=True)
+                with open(script_path, 'r', encoding='utf-8') as f:
+                    script_code = f.read()
+                script_name = SCRIPT_FILENAME
+
+            # 执行脚本代码
             exec_success, exec_result = ai_gemini_integration.execute_blender_code(script_code)
 
             if exec_success:
-                report_msg = f"脚本执行完毕: {exec_result}"  # <<< Changed
+                report_msg = f"脚本执行完毕: {exec_result}"
                 self.report({'INFO'}, report_msg)
-                result_msg = f"ℹ️ 已执行 '{SCRIPT_FILENAME}'. 结果: {exec_result}"  # <<< Changed
+                result_msg = f"ℹ️ 已执行 '{script_name}'. 结果: {exec_result}"
             else:
-                report_msg = f"脚本执行失败: {exec_result}"  # <<< Changed
+                report_msg = f"脚本执行失败: {exec_result}"
                 self.report({'ERROR'}, report_msg)
-                result_msg = f"❌ 执行 '{SCRIPT_FILENAME}' 失败: {exec_result}"  # <<< Changed
+                result_msg = f"❌ 执行 '{script_name}' 失败: {exec_result}"
 
-            # Add result to history
             if hasattr(context.scene, "ai_assistant"):
                 ai_props = context.scene.ai_assistant
                 msg = ai_props.messages.add()
@@ -363,21 +407,28 @@ class AI_OT_execute_script(bpy.types.Operator):
                 ai_props.active_message_index = len(ai_props.messages) - 1
 
         except (ImportError, FileNotFoundError, Exception) as e:
-            error_msg = f"执行错误: {e}"  # <<< Changed
+            error_msg = f"执行错误: {e}"
             self.report({'ERROR'}, error_msg)
             print(f"[Execute Script] Error: {traceback.format_exc()}", flush=True)
             if hasattr(context.scene, "ai_assistant"):
                 ai_props = context.scene.ai_assistant
                 msg = ai_props.messages.add()
-                msg.text = f"❌ 执行错误: {e}"  # <<< Changed
+                msg.text = f"❌ 执行错误: {e}"
                 msg.is_user = False
                 ai_props.active_message_index = len(ai_props.messages) - 1
             return {'CANCELLED'}
 
-        # Ensure panel stays open
         if hasattr(context.scene, "ai_assistant"):
             context.scene.ai_assistant.keep_open = True
             context.scene.ai_assistant.use_pin = True
+
+            # 强制刷新所有面板
+            for window in context.window_manager.windows:
+                for area in window.screen.areas:
+                    if area.type == 'VIEW_3D':
+                        for region in area.regions:
+                            if region.type == 'UI':
+                                region.tag_redraw()
 
         for area in context.screen.areas:
             area.tag_redraw()
@@ -386,8 +437,8 @@ class AI_OT_execute_script(bpy.types.Operator):
 
 class AI_OT_clear_history(bpy.types.Operator):
     bl_idname = "ai.clear_history"
-    bl_label = "清除历史记录"  # <<< Changed
-    bl_description = "清除 AI 消息历史记录"  # <<< Changed
+    bl_label = "清除历史记录"
+    bl_description = "清除 AI 消息历史记录"
     bl_options = {'REGISTER', 'INTERNAL'}
 
     @classmethod
@@ -399,7 +450,7 @@ class AI_OT_clear_history(bpy.types.Operator):
         count = len(ai_props.messages)
         ai_props.messages.clear()
         ai_props.active_message_index = -1
-        self.report({'INFO'}, f"已清除 {count} 条消息。")  # <<< Changed
+        self.report({'INFO'}, f"已清除 {count} 条消息。")
         for area in context.screen.areas:
             area.tag_redraw()
         return {'FINISHED'}
@@ -407,13 +458,12 @@ class AI_OT_clear_history(bpy.types.Operator):
 
 class AI_OT_debug(bpy.types.Operator):
     bl_idname = "ai.debug"
-    bl_label = "调试 AI助手"  # <<< Changed
-    bl_description = "调试 Blender AI助手 (设置断点)"  # <<< Changed
+    bl_label = "调试 AI助手"
+    bl_description = "调试 Blender AI助手 (设置断点)"
 
     def execute(self, context):
         print("\n==== AI Assistant Debug Breakpoint ====", flush=True)
-        # debug_ai_assistant() # Optional call to print info before break
-        print("设置断点...", flush=True)  # <<< Changed
+        print("设置断点...", flush=True)
         sys.stdout.flush()
         import pdb
 
@@ -421,7 +471,6 @@ class AI_OT_debug(bpy.types.Operator):
         return {'FINISHED'}
 
 
-# --- Classes List for Registration ---
 classes = (
     AIMessageItem,
     AIAssistantProperties,
@@ -430,55 +479,100 @@ classes = (
     AI_OT_execute_script,
     AI_OT_clear_history,
     VIEW3D_PT_ai_assistant,
-    VIEW3D_PT_ai_assistant_input,  # Keep child panel for structure
-    AI_OT_debug,  # Keep debug if needed
+    VIEW3D_PT_ai_assistant_input,
+    AI_OT_debug,
 )
 
 
-# --- Handler ---
 @bpy.app.handlers.persistent
 def force_panel_open_handler(dummy):
     if not bpy.context or not hasattr(bpy.context, 'scene') or not bpy.context.scene:
-        return 1.0
+        return 0.1  # 更频繁地检查
+
     if hasattr(bpy.context.scene, "ai_assistant"):
         ai_props = bpy.context.scene.ai_assistant
-        if not ai_props.keep_open:
-            ai_props.keep_open = True
-        if not ai_props.use_pin:
-            ai_props.use_pin = True
-    return None
+        ai_props.keep_open = True
+        ai_props.use_pin = True
+
+        # 强制刷新所有面板
+        for window in bpy.context.window_manager.windows:
+            for area in window.screen.areas:
+                if area.type == 'VIEW_3D':
+                    for region in area.regions:
+                        if region.type == 'UI':
+                            region.tag_redraw()
+
+    # 更频繁地运行此处理程序，确保面板始终保持打开
+    return 0.1
 
 
-# --- Registration ---
 def register():
-    print("注册 Blender AI助手...", flush=True)  # <<< Changed
+    print("注册 Blender AI助手...", flush=True)
     for cls in classes:
         try:
             bpy.utils.register_class(cls)
         except ValueError:
             pass
         except Exception as e:
-            print(f"  注册 {cls.__name__} 时出错: {e}", flush=True)  # <<< Changed
+            print(f"  注册 {cls.__name__} 时出错: {e}", flush=True)
 
     try:
         if not hasattr(bpy.types.Scene, "ai_assistant"):
-            bpy.types.Scene.ai_assistant = bpy.props.PointerProperty(type=AIAssistantProperties)
-            print("  已添加 'ai_assistant' 属性到场景。", flush=True)  # <<< Changed
+            bpy.types.Scene.ai_assistant = PointerProperty(type=AIAssistantProperties)
+            print("  已添加 'ai_assistant' 属性到场景。", flush=True)
     except Exception as e:
-        print(f"  添加属性时出错: {e}", flush=True)  # <<< Changed
+        print(f"  添加属性时出错: {e}", flush=True)
 
-    if force_panel_open_handler not in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.append(force_panel_open_handler)
-        print("  已注册 load_post 处理程序。", flush=True)  # <<< Changed
+    # 添加到多个处理程序中，确保面板始终保持打开
+    handlers = [
+        bpy.app.handlers.load_post,
+        bpy.app.handlers.depsgraph_update_post,
+        bpy.app.handlers.frame_change_post,
+    ]
 
-    print("Blender AI助手注册完成。", flush=True)  # <<< Changed
+    for handler_list in handlers:
+        if force_panel_open_handler not in handler_list:
+            handler_list.append(force_panel_open_handler)
+            print(f"  已注册处理程序到 {handler_list.__name__}", flush=True)
+
+    # 立即初始化 AI 助手
+    def init_ai_assistant():
+        try:
+            if hasattr(bpy.context, 'scene') and bpy.context.scene:
+                # 调用初始化操作符
+                bpy.ops.ai.initialize()
+                return None
+        except Exception as e:
+            print(f"  自动初始化 AI 助手时出错: {e}", flush=True)
+        return 0.5  # 如果失败，稍后重试
+
+    # 添加到定时器中，确保在启动时初始化
+    bpy.app.timers.register(init_ai_assistant, first_interval=0.5)
+
+    print("Blender AI助手注册完成。", flush=True)
 
 
 def unregister():
-    print("注销 Blender AI助手...", flush=True)  # <<< Changed
-    if force_panel_open_handler in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.remove(force_panel_open_handler)
-        print("  已注销 load_post 处理程序。", flush=True)  # <<< Changed
+    print("注销 Blender AI助手...", flush=True)
+
+    # 从所有处理程序中移除
+    handlers = [
+        bpy.app.handlers.load_post,
+        bpy.app.handlers.depsgraph_update_post,
+        bpy.app.handlers.frame_change_post,
+    ]
+
+    for handler_list in handlers:
+        if force_panel_open_handler in handler_list:
+            handler_list.remove(force_panel_open_handler)
+            print(f"  已从 {handler_list.__name__} 移除处理程序", flush=True)
+
+    # 移除定时器
+    if hasattr(bpy.app.timers, "unregister"):
+        for timer in bpy.app.timers.get_list():
+            if timer.__name__ == "init_ai_assistant":
+                bpy.app.timers.unregister(timer)
+                print("  已移除 AI 助手初始化定时器", flush=True)
 
     for cls in reversed(classes):
         try:
@@ -486,17 +580,17 @@ def unregister():
         except RuntimeError:
             pass
         except Exception as e:
-            print(f"  注销 {cls.__name__} 时出错: {e}", flush=True)  # <<< Changed
+            print(f"  注销 {cls.__name__} 时出错: {e}", flush=True)
 
     try:
         if hasattr(bpy.types.Scene, "ai_assistant"):
             del bpy.types.Scene.ai_assistant
     except Exception as e:
-        print(f"  移除属性时出错: {e}", flush=True)  # <<< Changed
+        print(f"  移除属性时出错: {e}", flush=True)
 
-    print("Blender AI助手注销完成。", flush=True)  # <<< Changed
+    print("Blender AI助手注销完成。", flush=True)
 
 
-# --- Main Guard ---
-# if __name__ == "__main__":
-#     print("请通过Blender插件系统运行注册。") # <<< Changed
+if __name__ == "__main__":
+    print("请通过Blender插件系统运行注册。")
+    register()
