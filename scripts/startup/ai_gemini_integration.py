@@ -2,13 +2,6 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-"""
-Google Gemini API Integration for Blender AI Assistant
-
-This module provides integration with Google's Gemini API to convert
-natural language descriptions into executable Blender Python code.
-"""
-
 import os
 import json
 import requests
@@ -19,37 +12,19 @@ import traceback  # Added for better error tracing
 import bpy
 import bmesh
 
-# Gemini API配置
-# ============================================================
-# vvv CHOOSE YOUR GEMINI 2.5 MODEL HERE vvv
-# --- Option 1: Paid Preview Model ---
-# NOTE: Requires specific access grant from Google Cloud.
-# GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-03-25:generateContent"
-
-# --- Option 2: Experimental Model ---
-# NOTE: Requires specific access grant and may be less stable.
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"
 
-# --- Previous Models (for reference) ---
-# GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent"
-# GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-# ============================================================
 
-
-# 代码保存配置
-CODE_SAVE_DIR = ""  # 空字符串表示使用当前工作目录
+CODE_SAVE_DIR = ""
 
 
 def get_api_key():
-    """Get Google API key"""
-    # 首先尝试从环境变量获取
+
     api_key = os.environ.get("GOOGLE_API_KEY", "")
 
-    # 如果环境变量中没有，尝试从配置模块获取
     if not api_key:
         try:
-            # Ensure ai_assistant_config exists and has the function
-            # This part depends on your specific setup for ai_assistant_config
+
             import ai_assistant_config
 
             if hasattr(ai_assistant_config, 'get_google_api_key'):
@@ -70,14 +45,7 @@ def get_api_key():
 
 
 def set_code_save_directory(directory):
-    """Set the directory where generated code will be saved
 
-    Args:
-        directory (str): Path to the directory where code should be saved
-
-    Returns:
-        bool: True if directory was set successfully, False otherwise
-    """
     global CODE_SAVE_DIR
 
     if not isinstance(directory, str):
@@ -85,7 +53,7 @@ def set_code_save_directory(directory):
         return False
 
     try:
-        # Handle empty string for current directory
+
         if directory == "":
             CODE_SAVE_DIR = ""
             print("[Gemini] 代码保存目录已设置为: 当前工作目录")
@@ -115,12 +83,7 @@ def set_code_save_directory(directory):
 
 
 def get_code_save_directory():
-    """Get the current directory where generated code will be saved
 
-    Returns:
-        str: Absolute path to the directory where code is being saved,
-             or the current working directory path if CODE_SAVE_DIR is empty.
-    """
     if CODE_SAVE_DIR:
         return os.path.abspath(CODE_SAVE_DIR)
     else:
@@ -132,14 +95,7 @@ def get_code_save_directory():
 
 
 def generate_blender_code(prompt_text):
-    """使用Google Gemini API将自然语言转换为Blender Python代码
 
-    Args:
-        prompt_text (str): 用户输入的自然语言描述
-
-    Returns:
-        tuple: (成功状态, 生成的代码或错误消息)
-    """
     api_key = get_api_key()
     if not api_key:
         return (
@@ -147,21 +103,19 @@ def generate_blender_code(prompt_text):
             "未配置Google API密钥，无法使用Gemini API。请检查环境变量 'GOOGLE_API_KEY' 或 ai_assistant_config 配置。",
         )
 
-    # 从 GEMINI_API_URL 中提取模型名称用于日志记录
     model_name = "未知模型"
     match = re.search(r'/models/([^:]+):', GEMINI_API_URL)
     if match:
         model_name = match.group(1)
     print(f"[Gemini - {model_name}] 准备生成代码...", flush=True)  # 添加模型名称日志
 
-    # 构建完整的提示 (添加Blender脚本开发常见问题的内容)
     full_prompt = f"""将以下自然语言描述转换为可在Blender中执行的Python代码。
     代码必须使用Blender Python API (bpy)创建可见的3D模型对象。
     添加日志输出以跟踪执行过程。
 
     用户描述: {prompt_text}
 
-    生成的代码必须满足以下要求：
+    生成的代码必须���足以下要求：
     1. 必须创建至少一个可见的3D对象：使用mesh.new()、object.add()等方法创建实际可见的几何体
     2. 必须为创建的对象设置合理的尺寸、位置和材质
     3. 力学原理检测：确保模型的结构符合基本力学原理，如重心平衡、支撑结构合理等
@@ -366,41 +320,27 @@ def generate_blender_code(prompt_text):
 
 
 def fix_common_code_issues(code):
-    """修复生成的代码中的常见问题
 
-    Args:
-        code (str): 原始生成的代码
-
-    Returns:
-        str: 修复后的代码
-    """
-    # 1. 移除或修正不存在的参数
-    # 移除clip_end参数
     code = re.sub(r'clip_end\s*=\s*(?:True|False|\d+\.\d+|\d+)', '', code)
 
-    # 修正甲甲圈(torus)的参数名 - 更通用的正则表达式
-    # 处理单行的情况
     code = re.sub(
         r'bpy\.ops\.mesh\.primitive_torus_add\s*\(\s*radius\s*=([^,]+),\s*tube\s*=([^,]+)',
         r'bpy.ops.mesh.primitive_torus_add(major_radius=\1, minor_radius=\2',
         code,
     )
 
-    # 处理多行的情况
     code = re.sub(
         r'bpy\.ops\.mesh\.primitive_torus_add\s*\(\s*(?:[\s\n]*)radius\s*=([^,]+),\s*(?:[\s\n]*)tube\s*=([^,]+)',
         r'bpy.ops.mesh.primitive_torus_add(major_radius=\1, minor_radius=\2',
         code,
     )
 
-    # 处理参数顺序不同的情况
     code = re.sub(
         r'bpy\.ops\.mesh\.primitive_torus_add\s*\(\s*(?:[\s\n]*)tube\s*=([^,]+),\s*(?:[\s\n]*)radius\s*=([^,]+)',
         r'bpy.ops.mesh.primitive_torus_add(minor_radius=\1, major_radius=\2',
         code,
     )
 
-    # 2. 修复重复的行，如重复的对象赋值
     lines = code.split('\n')
     fixed_lines = []
     prev_line = None
@@ -409,7 +349,6 @@ def fix_common_code_issues(code):
             fixed_lines.append(line)
         prev_line = line
 
-    # 3. 确保使用bpy.app.timers.register而不是if __name__ == "__main__"
     fixed_code = '\n'.join(fixed_lines)
     if "if __name__ == \"__main__\"" in fixed_code and "main()" in fixed_code:
         # 替换为正确的执行方式
@@ -419,21 +358,17 @@ def fix_common_code_issues(code):
             fixed_code,
         )
 
-    # 4. 添加缺失的导入
     if 'import bpy' not in fixed_code:
         fixed_code = 'import bpy\n' + fixed_code
 
-    # 检查是否使用了bmesh但没有导入
     if 'bmesh' in fixed_code and 'import bmesh' not in fixed_code:
         fixed_code = 'import bmesh\n' + fixed_code
 
-    # 检查是否使用了math但没有导入
     if (
         'math.sin' in fixed_code or 'math.cos' in fixed_code or 'math.pi' in fixed_code
     ) and 'import math' not in fixed_code:
         fixed_code = 'import math\n' + fixed_code
 
-    # 5. 确保有log函数定义
     if 'log(' in fixed_code and 'def log' not in fixed_code:
         log_func = "\ndef log(message):\n    print(f\"Log: {message}\", flush=True)\n"
         # 在导入语句之后添加log函数
@@ -450,14 +385,7 @@ def fix_common_code_issues(code):
 
 
 def execute_blender_code(code):
-    """在Blender中执行生成的Python代码
 
-    Args:
-        code (str): 要执行的Python代码
-
-    Returns:
-        tuple: (成功状态, 执行结果或错误消息)
-    """
     if not isinstance(code, str) or not code.strip():
         print("[Gemini Execution] 错误: 提供的代码为空或无效。", flush=True)
         return False, "无法执行空代码"
@@ -856,7 +784,6 @@ def send_message_to_gemini(message, conversation_history=None, is_refinement=Fal
     if not api_key:
         return "未配置Google API密钥，无法使用Gemini API。请检查环境变量 'GOOGLE_API_KEY' 或 ai_assistant_config 配置。"
 
-    # 从 GEMINI_API_URL 中提取模型名称用于日志记录
     model_name = "未知模型"
     match = re.search(r'/models/([^:]+):', GEMINI_API_URL)
     if match:
@@ -935,7 +862,7 @@ def send_message_to_gemini(message, conversation_history=None, is_refinement=Fal
     # 准备API请求
     headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
 
-    # 准备对话历史数据
+    # 准���对话历史数据
     contents = []
     if conversation_history:
         for item in conversation_history:
