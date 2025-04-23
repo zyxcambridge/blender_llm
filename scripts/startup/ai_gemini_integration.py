@@ -146,6 +146,9 @@ def generate_blender_code(prompt_text):
        - 手动选择目标对象 obj.select_set(True)
        - 设置活动对象 bpy.context.view_layer.objects.active = obj
        - 然后执行合并
+    4. **新增: `primitive_torus_add` 参数规则:**
+       - 调用 `bpy.ops.mesh.primitive_torus_add` 时，**必须** 使用 `major_radius` 和 `minor_radius` 参数来定义圆环的大小。
+       - **绝对禁止** 在 `bpy.ops.mesh.primitive_torus_add` 调用中使用 `radius=` 或 `tube=` 参数。
 
     只返回Python代码，不要包含任何解释或注释。确保代码可以直接在Blender中执行，生成完整的3D模型。
     """
@@ -284,43 +287,54 @@ def generate_blender_code(prompt_text):
 
 
 def fix_common_code_issues(code):
+    # 1. 移除 enter_editmode 参数（支持换行）
+    code = re.sub(
+        r'(bpy\.ops\.mesh\.[a-zA-Z0-9_]+_add\s*\([^\)]*?)\s*,?\s*enter_editmode\s*=\s*(?:True|False)\s*',
+        r'\1',
+        code,
+        flags=re.DOTALL,
+    )
 
+    # 2. 移除 align 参数（保留合规位置用例）
+    code = re.sub(
+        r'(bpy\.ops\.mesh\.[a-zA-Z0-9_]+_add\s*\([^\)]*?)\s*,?\s*align\s*=\s*[\'"](?:WORLD|VIEW|CURSOR)[\'"]\s*',
+        r'\1',
+        code,
+        flags=re.DOTALL,
+    )
+
+    # 3. 禁止错误混用 radius 和 major_radius 的调用
+    code = re.sub(
+        r'bpy\.ops\.mesh\.primitive_torus_add\s*\([^)]*radius\s*=\s*[^,\)]+,\s*major_radius\s*=\s*[^,\)]+[^)]*\)',
+        '# 错误用法被屏蔽（禁止同时使用 radius 和 major_radius）',
+        code,
+        flags=re.DOTALL,
+    )
+
+    # 4. 修复 torus 参数，强制用 major_radius / minor_radius 替代 radius/tube
+    def replace_torus_params(match):
+        params = match.group()
+        major_match = re.search(r'radius\s*=\s*([^\s,]+)', params)
+        minor_match = re.search(r'tube\s*=\s*([^\s,]+)', params)
+        loc_match = re.search(r'location\s*=\s*\([^)]+\)', params)
+        rot_match = re.search(r'rotation\s*=\s*\([^)]+\)', params)
+
+        major = major_match.group(1) if major_match else '0.4'
+        minor = minor_match.group(1) if minor_match else '0.1'
+        loc = loc_match.group(0) if loc_match else 'location=(0, 0, 0.7)'
+        rot = rot_match.group(0) if rot_match else 'rotation=(0, 0, 0)'
+
+        return f"bpy.ops.mesh.primitive_torus_add(\n    {loc},\n    {rot},\n    major_radius={major},\n    minor_radius={minor}\n)"
+
+    code = re.sub(
+        r'bpy\.ops\.mesh\.primitive_torus_add\s*\([^)]*radius\s*=\s*[^,\)]+[^)]*tube\s*=\s*[^,\)]+[^)]*\)',
+        replace_torus_params,
+        code,
+        flags=re.DOTALL,
+    )
+
+    # 5. 清理 clip_end 参数（可选）
     code = re.sub(r'clip_end\s*=\s*(?:True|False|\d+\.\d+|\d+)', '', code)
-
-    # 修复 torus 参数名称问题
-    code = re.sub(
-        r'bpy\.ops\.mesh\.primitive_torus_add\s*\(\s*radius\s*=([^,]+),\s*tube\s*=([^,]+)',
-        r'bpy.ops.mesh.primitive_torus_add(major_radius=\1, minor_radius=\2',
-        code,
-    )
-
-    code = re.sub(
-        r'bpy\.ops\.mesh\.primitive_torus_add\s*\(\s*(?:[\s\n]*)radius\s*=([^,]+),\s*(?:[\s\n]*)tube\s*=([^,]+)',
-        r'bpy.ops.mesh.primitive_torus_add(major_radius=\1, minor_radius=\2',
-        code,
-    )
-
-    code = re.sub(
-        r'bpy\.ops\.mesh\.primitive_torus_add\s*\(\s*(?:[\s\n]*)tube\s*=([^,]+),\s*(?:[\s\n]*)radius\s*=([^,]+)',
-        r'bpy.ops.mesh.primitive_torus_add(minor_radius=\1, major_radius=\2',
-        code,
-    )
-
-    # 移除 Blender 4.1+ 中不再支持的参数
-    # 移除 enter_editmode 参数
-    code = re.sub(
-        r'(bpy\.ops\.mesh\.[a-zA-Z0-9_]+_add\s*\([^\)]*),\s*enter_editmode\s*=\s*(?:True|False)([^\)]*\))',
-        r'\1\2',
-        code,
-    )
-
-    # 移除 align 参数
-    code = re.sub(
-        r'(bpy\.ops\.mesh\.[a-zA-Z0-9_]+_add\s*\([^\)]*),\s*align\s*=\s*[\'"](?:WORLD|VIEW|CURSOR)[\'"]([^\)]*\))',
-        r'\1\2',
-        code,
-    )
-
     # 处理中文变量名，将其替换为英文变量名并添加注释
     chinese_var_patterns = [
         (r'\b角色名\b', 'character_name'),  # 角色名
@@ -515,8 +529,14 @@ def send_message_to_gemini(message, conversation_history=None, is_refinement=Fal
 
         4. **新增: `primitive_torus_add` 参数规则:**
         - 调用 `bpy.ops.mesh.primitive_torus_add` 时，**必须** 使用 `major_radius` 和 `minor_radius` 参数来定义圆环的大小。
-        - **绝对禁止** 在 `bpy.ops.mesh.primitive_torus_add` 调用中使用 `radius=` 或 `tube=` 参数。
-
+        - **绝对禁止**bpy.ops.mesh.primitive_torus_add(radius=0.4, major_radius=0.6, enter_editmode=False, align='WORLD', location=(0, 0, 1.2))
+        - 使用 bpy.ops.mesh.primitive_torus_add(
+                        align='WORLD',
+                        location=(0, 0, 0.7),
+                        rotation=(0, 0, 0),
+                        major_radius=0.4,
+                        minor_radius=0.1
+                    )
         只返回Python代码，使用Markdown代码块格式(```python ... ```)包装你的代码。不要包含任何解释或额外文本。
         """
 
