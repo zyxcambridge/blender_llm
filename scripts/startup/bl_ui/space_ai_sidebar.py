@@ -215,7 +215,7 @@ class AI_OT_initialize(bpy.types.Operator):
 class AI_OT_send_message(bpy.types.Operator):
     bl_idname = "ai.send_message"
     bl_label = "发送消息"
-    bl_description = "发送消息给 Blender AI助手并执行生成的代码"
+    bl_description = "发送消息给 Blender AI助手生成代码（不自动执行）"
 
     @classmethod
     def poll(cls, context):
@@ -265,19 +265,12 @@ class AI_OT_send_message(bpy.types.Operator):
                     print(f"保存代码时出错: {save_e}", flush=True)
                     ai_response_text += f"\n⚠️ 保存代码时出错: {save_e}"
 
-                exec_success, exec_result = ai_gemini_integration.execute_blender_code(generated_code)
-                if exec_success:
-                    ai_response_text += f"\n✅ 代码执行结果: {exec_result}"
-                else:
-                    ai_response_text += f"\n❌ 代码执行失败: {exec_result}"
-                    print(f"[Gemini] 执行错误: {exec_result}", flush=True)
+                # 不自动执行代码，只生成和保存
+                ai_response_text += f"\n✅ 代码已生成并保存到 {script_path}"
+                ai_response_text += "\nℹ️ 请点击'执行脚本 (类似Alt+P)'按钮执行代码"
             else:
                 ai_response_text = f"❌ Gemini API 错误: {result}"
                 print(f"[Gemini] API 错误: {result}", flush=True)
-
-        except ImportError:
-            ai_response_text = "❌ 系统错误: 无法导入 'ai_gemini_integration'."
-            print(f"[Error] {ai_response_text}", flush=True)
         except Exception as e:
             ai_response_text = f"❌ 未知错误: {e}"
             print(f"[Error] {ai_response_text}\n{traceback.format_exc()}", flush=True)
