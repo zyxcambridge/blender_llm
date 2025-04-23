@@ -459,7 +459,7 @@ def send_message_to_gemini(message, conversation_history=None, is_refinement=Fal
     match = re.search(r'/models/([^:]+):', GEMINI_API_URL)
     if match:
         model_name = match.group(1)
-    print(f"[Gemini - {model_name}] 准备生成响应...", flush=True)
+    print(f"[Gemini - {model_name}] 准备生成响应... :{is_refinement}", flush=True)
 
     # 构建提示，添加Blender脚本开发常见问题的内容
     if is_refinement:
@@ -544,15 +544,15 @@ def send_message_to_gemini(message, conversation_history=None, is_refinement=Fal
            - 然后执行合并
 
         4. **新增: `primitive_torus_add` 参数规则:**
-        - **绝对禁止**bpy.ops.mesh.primitive_torus_add(radius=0.4, major_radius=0.6, enter_editmode=False, align='WORLD', location=(0, 0, 1.2))
+        -不要使用enter_editmode字段
         - 正确方式是bpy.ops.mesh.primitive_torus_add(
-                        align='WORLD',
-                        location=(0, 0, 0.7),
-                        rotation=(0, 0, 0),
-                        major_radius=0.4,
-                        minor_radius=0.1
-                    )
-        -避免报错：keyword "enter_editmode" unrecognized，不要使用enter_editmode字段
+                align='WORLD',
+                location=(0, 0, 0.7),
+                rotation=(0, 0, 0),
+                major_radius=0.4,
+                minor_radius=0.1
+            )
+        - **绝对禁止**bpy.ops.mesh.primitive_torus_add(radius=0.4, major_radius=0.6, enter_editmode=False, align='WORLD', location=(0, 0, 1.2))
 
         5.  **bmesh 工作流**: 正确使用 bmesh.new(), bm.from_mesh(), bm.to_mesh(), mesh.update(), 和 **极其重要** 的 bm.free() 来避免内存泄漏。在编辑模式下使用 from_edit_mesh/update_edit_mesh。
             -避免报错：'Mesh' object has no attribute 'is_valid'
@@ -623,22 +623,6 @@ def send_message_to_gemini(message, conversation_history=None, is_refinement=Fal
     except requests.exceptions.HTTPError as e:
         # 处理HTTP错误
         error_msg = f"API 请求 HTTP 错误: {e.response.status_code} {e.response.reason}."
-        print(f"[Gemini - {model_name}] 错误: {error_msg}", flush=True)
-        return error_msg
-    except requests.exceptions.Timeout:
-        error_msg = "API 请求超时。模型可能需要更长时间处理或网络连接不稳定。"
-        print(f"[Gemini - {model_name}] 错误: {error_msg}", flush=True)
-        return error_msg
-    except requests.exceptions.RequestException as e:
-        # 处理其他请求错误
-        error_msg = f"API 请求时发生网络或连接错误: {str(e)}"
-        print(f"[Gemini - {model_name}] 错误: {error_msg}", flush=True)
-        return error_msg
-    except json.JSONDecodeError:
-        # 处理JSON解析错误
-        error_msg = (
-            f"无法解析 API 响应 (非有效 JSON)。状态码: {response.status_code if 'response' in locals() else 'N/A'}"
-        )
         print(f"[Gemini - {model_name}] 错误: {error_msg}", flush=True)
         return error_msg
     except Exception as e:
