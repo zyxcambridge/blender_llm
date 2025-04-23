@@ -20,6 +20,8 @@ make -j16 && /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Cont
 4. 增加 执行blenderpython脚本 按钮；
 
 
+
+
 ai_gemini_integration.py  generate_blender_code 生成的代码有错，保存为 固定的文件名字；打印 这个文件里的内容；
 
 
