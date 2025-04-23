@@ -84,7 +84,8 @@ class VIEW3D_PT_ai_assistant(Panel):
     bl_region_type = 'UI'
     bl_category = "Blender AI助手"
     bl_label = "Blender AI助手-智能助手"
-    bl_options = {'HIDE_HEADER'}
+    bl_options = {'HIDE_HEADER', 'DEFAULT_CLOSED'}
+    bl_order = 0  # 确保面板显示在最上面
 
     @classmethod
     def poll(cls, context):
@@ -110,6 +111,8 @@ class VIEW3D_PT_ai_assistant(Panel):
             row.operator("ai.initialize", text="初始化 Blender AI助手", icon='FILE_REFRESH')
             return
 
+        ai_props = context.scene.ai_assistant
+
         # 1. 标题区
         title_box = layout.box()
         title_row = title_box.row()
@@ -119,23 +122,6 @@ class VIEW3D_PT_ai_assistant(Panel):
         if bpy.app.debug:
             debug_row = layout.row(align=True)
             debug_row.operator("ai.initialize", text="重新初始化", icon='FILE_REFRESH')
-
-
-class VIEW3D_PT_ai_assistant_input(Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = "Blender AI助手"
-    bl_parent_id = VIEW3D_PT_ai_assistant.__name__
-    bl_options = {'HIDE_HEADER', 'DEFAULT_CLOSED'}
-    bl_label = "Blender AI助手-智能助手"
-
-    @classmethod
-    def poll(cls, context):
-        return hasattr(context.scene, "ai_assistant")
-
-    def draw(self, context):
-        layout = self.layout
-        ai_props = context.scene.ai_assistant
 
         # 2. 用户需求记录区
         history_box = layout.box()
@@ -450,6 +436,32 @@ class AI_OT_debug(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class AI_OT_toggle_panel(bpy.types.Operator):
+    bl_idname = "ai.toggle_panel"
+    bl_label = "切换 AI助手面板"
+    bl_description = "显示或隐藏 Blender AI助手面板"
+
+    def execute(self, context):
+        if hasattr(context.scene, "ai_assistant"):
+            ai_props = context.scene.ai_assistant
+            # 切换面板状态
+            ai_props.keep_open = not ai_props.keep_open
+
+            # 如果是打开面板，确保它被固定
+            if ai_props.keep_open:
+                ai_props.use_pin = True
+
+                # 强制刷新所有面板
+                for window in context.window_manager.windows:
+                    for area in window.screen.areas:
+                        if area.type == 'VIEW_3D':
+                            for region in area.regions:
+                                if region.type == 'UI':
+                                    region.tag_redraw()
+
+        return {'FINISHED'}
+
+
 classes = (
     AIMessageItem,
     AIAssistantProperties,
@@ -458,8 +470,8 @@ classes = (
     AI_OT_execute_script,
     AI_OT_clear_history,
     VIEW3D_PT_ai_assistant,
-    VIEW3D_PT_ai_assistant_input,
     AI_OT_debug,
+    AI_OT_toggle_panel,
 )
 
 
@@ -470,19 +482,27 @@ def force_panel_open_handler(dummy):
 
     if hasattr(bpy.context.scene, "ai_assistant"):
         ai_props = bpy.context.scene.ai_assistant
+        # 始终强制面板保持打开状态
         ai_props.keep_open = True
         ai_props.use_pin = True
 
-        # 强制刷新所有面板
+        # 确保面板在侧边栏中可见
         for window in bpy.context.window_manager.windows:
             for area in window.screen.areas:
                 if area.type == 'VIEW_3D':
+                    # 尝试将面板所在的区域设置为可见
                     for region in area.regions:
                         if region.type == 'UI':
+                            # 确保区域可见
+                            if region.alignment == 'RIGHT':
+                                region.width = max(region.width, 300)  # 确保面板有足够的宽度
                             region.tag_redraw()
 
-    # 更频繁地运行此处理程序，确保面板始终保持打开
-    return 0.1
+                    # 强制刷新区域
+                    area.tag_redraw()
+
+    # 非常频繁地运行此处理程序，确保面板始终保持打开
+    return 0.05  # 更频繁地运行，每0.05秒检查一次
 
 
 def register():
@@ -507,12 +527,21 @@ def register():
         bpy.app.handlers.load_post,
         bpy.app.handlers.depsgraph_update_post,
         bpy.app.handlers.frame_change_post,
+        # 添加更多处理程序以确保面板始终可见
+        bpy.app.handlers.scene_update_post if hasattr(bpy.app.handlers, 'scene_update_post') else None,
+        bpy.app.handlers.undo_post,
+        bpy.app.handlers.redo_post,
     ]
 
     for handler_list in handlers:
-        if force_panel_open_handler not in handler_list:
+        if handler_list is not None and force_panel_open_handler not in handler_list:
             handler_list.append(force_panel_open_handler)
             print(f"  已注册处理程序到 {handler_list.__name__}", flush=True)
+
+    # 添加到定时器中，确保面板始终保持打开
+    if force_panel_open_handler not in bpy.app.timers.get_list():
+        bpy.app.timers.register(force_panel_open_handler, first_interval=0.1, persistent=True)
+        print("  已注册处理程序到定时器", flush=True)
 
     # 立即初始化 AI 助手
     def init_ai_assistant():
@@ -539,12 +568,23 @@ def unregister():
         bpy.app.handlers.load_post,
         bpy.app.handlers.depsgraph_update_post,
         bpy.app.handlers.frame_change_post,
+        bpy.app.handlers.scene_update_post if hasattr(bpy.app.handlers, 'scene_update_post') else None,
+        bpy.app.handlers.undo_post,
+        bpy.app.handlers.redo_post,
     ]
 
     for handler_list in handlers:
-        if force_panel_open_handler in handler_list:
+        if handler_list is not None and force_panel_open_handler in handler_list:
             handler_list.remove(force_panel_open_handler)
             print(f"  已从 {handler_list.__name__} 移除处理程序", flush=True)
+
+    # 从定时器中移除
+    if hasattr(bpy.app.timers, "unregister"):
+        try:
+            bpy.app.timers.unregister(force_panel_open_handler)
+            print("  已从定时器移除处理程序", flush=True)
+        except ValueError:
+            pass  # 如果定时器不存在，忽略错误
 
     # 移除定时器
     if hasattr(bpy.app.timers, "unregister"):
