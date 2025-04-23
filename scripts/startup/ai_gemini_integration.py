@@ -1,7 +1,4 @@
-# SPDX-FileCopyrightText: 2023 Blender Authors
-#
-# SPDX-License-Identifier: GPL-2.0-or-later
-
+# coding=utf-8
 import os
 import sys
 import json
@@ -533,7 +530,6 @@ def send_message_to_gemini(message, conversation_history=None, is_refinement=Fal
     # 准备API请求
     headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
 
-    # 准���对话历史数据
     contents = []
     if conversation_history:
         for item in conversation_history:
