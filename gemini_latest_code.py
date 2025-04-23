@@ -1,131 +1,94 @@
 import bpy
 import bmesh
 import math
+import logging
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 def log(message):
-    print(f"Log: {message}")
-def create_head(head_shape="Sphere", radius=1.0):
-    log("Creating head")
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=(0, 0, 0))
-    head = bpy.context.active_object
-    head.name = "Head"
-    return head
-def create_ear(ear_shape="Sphere", radius=0.2):
-    log("Creating ear")
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=(0.7, 0, 1.2))
-    ear = bpy.context.active_object
-    ear.name = "Ear"
-    return ear
-def create_eye(eye_shape="Sphere", radius=0.15):
-    log("Creating eye")
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=(0.4, 0.5, 0.8))
-    eye = bpy.context.active_object
-    eye.name = "Eye"
-    return eye
-def create_mouth(mouth_shape="Torus", major_radius=0.4, minor_radius=0.1):
-    log("Creating mouth")
+    logging.info(message)
+def clear_scene():
+    log("Clearing the scene")
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.object.delete(use_global=False)
+def create_base():
+    log("Creating the base")
+    bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 0))
+    base = bpy.context.active_object
+    base.name = "Base"
+    base.scale = (1, 1, 0.1)
+    return base
+def create_support(base):
+    log("Creating the support")
+    bpy.ops.mesh.primitive_cylinder_add(radius=0.2, depth=1, location=(0, 0, 0.6))
+    support = bpy.context.active_object
+    support.name = "Support"
+    return support
+def create_top(support):
+    log("Creating the top")
     bpy.ops.mesh.primitive_torus_add(
-        location=(0, -0.6, 0.7),
+        location=(0, 0, 1.2),
         rotation=(0, 0, 0),
-        major_radius=major_radius,
-        minor_radius=minor_radius
+        major_radius=0.4,
+        minor_radius=0.1
     )
-    mouth = bpy.context.active_object
-    mouth.name = "Mouth"
-    return mouth
-def create_arm(arm_shape="Cylinder", radius=0.1, length=1.0):
-    log("Creating arm")
-    bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, location=(1.2, 0, 0))
-    arm = bpy.context.active_object
-    arm.name = "Arm"
-    return arm
-def create_leg(leg_shape="Cylinder", radius=0.2, length=1.2):
-    log("Creating leg")
-    bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, location=(0, 0, -1.2))
-    leg = bpy.context.active_object
-    leg.name = "Leg"
-    return leg
-def create_hat():
-    log("Creating hat")
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.6, location=(0, 0, 1.7), segments=32, ring_count=16)
-    hat = bpy.context.active_object
-    hat.name = "Hat"
-    return hat
-def create_backpack():
-    log("Creating backpack")
-    bpy.ops.mesh.primitive_cube_add(size=0.5, location=(-1.2, 0, 0.5))
-    backpack = bpy.context.active_object
-    backpack.name = "Backpack"
-    return backpack
-def check_mechanics(obj):
-    log(f"Checking mechanics for {obj.name}")
-    # Basic check: object exists
-    if obj is None:
-        log(f"Error: {obj.name} is None")
-        return False
-    log(f"Mechanics check passed for {obj.name}")
-    return True
-def check_physics(obj):
-    log(f"Checking physics for {obj.name}")
-    # Basic check: object exists
-    if obj is None:
-        log(f"Error: {obj.name} is None")
-        return False
-    log(f"Physics check passed for {obj.name}")
-    return True
-def check_appearance(obj):
-    log(f"Checking appearance for {obj.name}")
-    # Basic check: object exists
-    if obj is None:
-        log(f"Error: {obj.name} is None")
-        return False
-    log(f"Appearance check passed for {obj.name}")
-    return True
-def check_structure(obj):
-    log(f"Checking structure for {obj.name}")
-    # Basic check: object exists
-    if obj is None:
-        log(f"Error: {obj.name} is None")
-        return False
-    log(f"Structure check passed for {obj.name}")
-    return True
+    top = bpy.context.active_object
+    top.name = "Top"
+    return top
+def create_handle(top):
+    log("Creating the handle")
+    bpy.ops.curve.primitive_bezier_circle_add(radius=0.5, enter_editmode=False, align='WORLD', location=(0, 0, 1.7))
+    handle_curve = bpy.context.active_object
+    handle_curve.name = "Handle_Curve"
+    bpy.ops.mesh.primitive_circle_add(radius=0.05, location=(0.6, 0, 1.7))
+    handle_profile = bpy.context.active_object
+    handle_profile.name = "Handle_Profile"
+    bpy.context.view_layer.objects.active = handle_profile
+    handle_profile.data.bevel_object = handle_curve
+    return handle_profile
+def set_material(obj, color):
+    log(f"Setting material for {obj.name} to {color}")
+    material = bpy.data.materials.new(name=f"{obj.name}_Material")
+    material.use_nodes = True
+    bsdf = material.node_tree.nodes["Principled BSDF"]
+    bsdf.inputs["Base Color"].default_value = color + (1)
+    obj.data.materials.append(material)
+def check_mechanics(base, support, top, handle):
+    log("Checking mechanics")
+    # Basic check: Support is above the base
+    if support.location[2] <= base.location[2]:
+        log("Warning: Support is not above the base.")
+    # Basic check: Top is above the support
+    if top.location[2] <= support.location[2]:
+        log("Warning: Top is not above the support.")
+    # Basic check: Handle is above the top
+    if handle.location[2] <= top.location[2]:
+        log("Warning: Handle is not above the top.")
+def check_physics(base, support, top, handle):
+    log("Checking physics")
+    # Placeholder for physics checks (e.g., stability, fluid flow)
+    pass
+def check_appearance(base, support, top, handle):
+    log("Checking appearance")
+    # Placeholder for appearance checks (e.g., proportions, aesthetics)
+    pass
+def check_structure(base, support, top, handle):
+    log("Checking structure")
+    # Placeholder for structure checks (e.g., connections, component placement)
+    pass
 def main():
-    character_name = "CartoonCharacter"
-    log("Starting character creation")
-    head = create_head()
-    ear_left = create_ear()
-    ear_left.location = (-0.7, 0.5, 1.2)
-    ear_right = create_ear()
-    ear_right.location = (0.7, 0.5, 1.2)
-    eye_left = create_eye()
-    eye_left.location = (-0.4, 0.5, 0.8)
-    eye_right = create_eye()
-    eye_right.location = (0.4, 0.5, 0.8)
-    mouth = create_mouth()
-    arm_left = create_arm()
-    arm_left.location = (-1.2, 0, 0)
-    arm_left.rotation_euler = (0, 0, math.radians(90))
-    arm_right = create_arm()
-    arm_right.location = (1.2, 0, 0)
-    arm_right.rotation_euler = (0, 0, math.radians(-90))
-    leg_left = create_leg()
-    leg_left.location = (-0.4, 0, -1.2)
-    leg_right = create_leg()
-    leg_right.location = (0.4, 0, -1.2)
-    hat = create_hat()
-    backpack = create_backpack()
-    log("Joining objects")
-    objects_to_join = [head, ear_left, ear_right, eye_left, eye_right, mouth, arm_left, arm_right, leg_left, leg_right, hat, backpack]
-    bpy.ops.object.select_all(action='DESELECT')
-    for obj in objects_to_join:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = head
-    bpy.ops.object.join()
-    joined_object = bpy.context.active_object
-    joined_object.name = character_name
-    log("Performing checks")
-    check_mechanics(joined_object)
-    check_physics(joined_object)
-    check_appearance(joined_object)
-    check_structure(joined_object)
-    log("Character creation complete")
+    log("Starting the main function")
+    clear_scene()
+    base = create_base()
+    support = create_support(base)
+    top = create_top(support)
+    handle = create_handle(top)
+    set_material(base, (0.8, 0.2, 0.2))  # Reddish
+    set_material(support, (0.5, 0.5, 0.5))  # Gray
+    set_material(top, (0.2, 0.8, 0.2))  # Greenish
+    set_material(handle, (0.2, 0.2, 0.8))  # Blueish
+    check_mechanics(base, support, top, handle)
+    check_physics(base, support, top, handle)
+    check_appearance(base, support, top, handle)
+    check_structure(base, support, top, handle)
+    log("Finished the main function")
 bpy.app.timers.register(main)
