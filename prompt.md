@@ -8,6 +8,16 @@ make -j16 && /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Cont
 /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Contents/MacOS/Blender
 
 
+发送给AI 变成 agent 建模规划
+修复脚本错误 变成 agent 评估反思
+执行脚本(类似Alt+P) agent 执行
+
+
+修改代码的逻辑是，每次把代码请求 genimi ，genimi告诉你错误，你再针对性的修改，直到genimi 不再报错，然后执行脚本。
+
+
+
+
 执行脚本过程中，如果遇到错误，需要提供错误信息，以便进行调试和修复。打印错误信息到控制台
 
 
