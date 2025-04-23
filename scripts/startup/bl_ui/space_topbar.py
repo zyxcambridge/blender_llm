@@ -50,9 +50,9 @@ class TOPBAR_HT_upper_bar(Header):
             if context.scene.ai_assistant.keep_open:
                 props = row.operator("ai.toggle_panel", text="Blender AI助手", icon='COMMUNITY')
             else:
-                props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="Blender AI助手", icon='COMMUNITY')
+                props = row.popover(panel="VIEW3D_PT_ai_assistant", text="Blender AI助手", icon='COMMUNITY')
         else:
-            props = row.popover(panel="VIEW3D_PT_ai_assistant_input", text="Blender AI助手", icon='COMMUNITY')
+            props = row.popover(panel="VIEW3D_PT_ai_assistant", text="Blender AI助手", icon='COMMUNITY')
 
         layout.separator(factor=1.0)
 
