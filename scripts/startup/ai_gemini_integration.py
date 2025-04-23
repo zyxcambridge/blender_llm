@@ -474,7 +474,9 @@ def send_message_to_gemini(message, conversation_history=None, is_refinement=Fal
         2. 修改现有对象，而不是重新创建一个新模型
         3. 使用注释说明每个修改步骤的目的
         4. 在代码开始添加日志输出并在结束时显示完成消息
-
+        -当前环境是Blender 4.5 ,不要调用Blender 4.1 以前的api;
+        -Blender 4.5 API : https://docs.blender.org/api/current/
+        -生成代码时查询上面的地址，确认API的可用性和参数是否正确;
         请避免以下Blender脚本开发中的常见错误：
 
         1. 不要使用 if __name__ == "__main__" 结构：
@@ -492,7 +494,19 @@ def send_message_to_gemini(message, conversation_history=None, is_refinement=Fal
            - 手动选择目标对象 obj.select_set(True)
            - 设置活动对象 bpy.context.view_layer.objects.active = obj
            - 然后执行合并
+        4. **新增: `primitive_torus_add` 参数规则:**
+        - **绝对禁止**bpy.ops.mesh.primitive_torus_add(radius=0.4, major_radius=0.6, enter_editmode=False, align='WORLD', location=(0, 0, 1.2))
+        - 正确方式是bpy.ops.mesh.primitive_torus_add(
+                        align='WORLD',
+                        location=(0, 0, 0.7),
+                        rotation=(0, 0, 0),
+                        major_radius=0.4,
+                        minor_radius=0.1
+                    )
+        -避免报错：keyword "enter_editmode" unrecognized，不要使用enter_editmode字段
 
+        5.  **bmesh 工作流**: 正确使用 bmesh.new(), bm.from_mesh(), bm.to_mesh(), mesh.update(), 和 **极其重要** 的 bm.free() 来避免内存泄漏。在编辑模式下使用 from_edit_mesh/update_edit_mesh。
+            -避免报错：'Mesh' object has no attribute 'is_valid'
         只返回Python代码，使用Markdown代码块格式(```python ... ```)包装你的代码。不要包含任何解释或额外文本。
         """
     else:
@@ -508,7 +522,9 @@ def send_message_to_gemini(message, conversation_history=None, is_refinement=Fal
         3. 添加日志输出以跟踪执行过程
         4. 确保代码可以直接在Blender中执行
         5. 使用Blender Python API (bpy) 创建所有对象和材质
-
+        -当前环境是Blender 4.5 ,不要调用Blender 4.1 以前的api;
+        -Blender 4.5 API : https://docs.blender.org/api/current/
+        -生成代码时查询上面的地址，确认API的可用性和参数是否正确;
         请避免以下Blender脚本开发中的常见错误：
 
         1. 不要使用 if __name__ == "__main__" 结构：
@@ -528,15 +544,19 @@ def send_message_to_gemini(message, conversation_history=None, is_refinement=Fal
            - 然后执行合并
 
         4. **新增: `primitive_torus_add` 参数规则:**
-        - 调用 `bpy.ops.mesh.primitive_torus_add` 时，**必须** 使用 `major_radius` 和 `minor_radius` 参数来定义圆环的大小。
         - **绝对禁止**bpy.ops.mesh.primitive_torus_add(radius=0.4, major_radius=0.6, enter_editmode=False, align='WORLD', location=(0, 0, 1.2))
-        - 使用 bpy.ops.mesh.primitive_torus_add(
+        - 正确方式是bpy.ops.mesh.primitive_torus_add(
                         align='WORLD',
                         location=(0, 0, 0.7),
                         rotation=(0, 0, 0),
                         major_radius=0.4,
                         minor_radius=0.1
                     )
+        -避免报错：keyword "enter_editmode" unrecognized，不要使用enter_editmode字段
+
+        5.  **bmesh 工作流**: 正确使用 bmesh.new(), bm.from_mesh(), bm.to_mesh(), mesh.update(), 和 **极其重要** 的 bm.free() 来避免内存泄漏。在编辑模式下使用 from_edit_mesh/update_edit_mesh。
+            -避免报错：'Mesh' object has no attribute 'is_valid'
+
         只返回Python代码，使用Markdown代码块格式(```python ... ```)包装你的代码。不要包含任何解释或额外文本。
         """
 
