@@ -6,6 +6,27 @@ from mathutils import Vector
 def log(message):
     print(f"Log: {message}")
 
+def create_mesh_object(mesh_type, **kwargs):
+    """Helper function to create mesh objects."""
+    try:
+        if mesh_type == "Sphere":
+            bpy.ops.mesh.primitive_uv_sphere_add(**kwargs)
+        elif mesh_type == "Cube":
+            bpy.ops.mesh.primitive_cube_add(**kwargs)
+        elif mesh_type == "Cylinder":
+            bpy.ops.mesh.primitive_cylinder_add(**kwargs)
+        elif mesh_type == "Torus":
+            bpy.ops.mesh.primitive_torus_add(**kwargs)
+        else:
+            log(f"Invalid mesh type: {mesh_type}")
+            return None
+
+        obj = bpy.context.object
+        return obj
+    except Exception as e:
+        log(f"Error creating {mesh_type}: {e}")
+        return None
+
 class Character:
     def __init__(self, name="CartoonCharacter"):
         self.name = name
@@ -27,9 +48,17 @@ class Character:
         self.leg_right_lower = None
         self.hat = None
         self.backpack = None
+        self.hand_left = None
+        self.hand_right = None
+        self.foot_left = None
+        self.foot_right = None
         self.scale = 1.0  # Overall scale of the character
-        self.density = 1.0 # Density for mass calculation (simplified)
+        self.density = 500 # Density for mass calculation (simplified)
         self.bone_length = 0.5 * self.scale # Default bone length
+        self.head_size_ratio = 0.6 # Head size relative to body
+        self.required_parts = ["head", "body", "leg_left_lower", "leg_right_lower"] # Define required parts
+        self.constraints = {} # Dictionary to store constraints
+        self.part_volumes = {} # Store volumes for faster COM calculation
 
     def create_armature(self):
         log("Creating armature")
@@ -110,36 +139,15 @@ class Character:
             log(f"Error creating armature: {e}")
             return None
 
-    def create_mesh_object(self, mesh_type, **kwargs):
-        """Helper function to create mesh objects."""
-        try:
-            if mesh_type == "Sphere":
-                bpy.ops.mesh.primitive_uv_sphere_add(**kwargs)
-            elif mesh_type == "Cube":
-                bpy.ops.mesh.primitive_cube_add(**kwargs)
-            elif mesh_type == "Cylinder":
-                bpy.ops.mesh.primitive_cylinder_add(**kwargs)
-            elif mesh_type == "Torus":
-                bpy.ops.mesh.primitive_torus_add(**kwargs)
-            else:
-                log(f"Invalid mesh type: {mesh_type}")
-                return None
-
-            obj = bpy.context.object
-            return obj
-        except Exception as e:
-            log(f"Error creating {mesh_type}: {e}")
-            return None
-
     def create_head(self, head_shape="Sphere", radius=1.0, location=(0, 0, 1.0)):
         log("Creating head")
         if head_shape not in ["Sphere"]:
             log("Invalid head shape. Creating sphere instead.")
             head_shape = "Sphere"
 
-        head = self.create_mesh_object(
+        head = create_mesh_object(
             head_shape,
-            radius=radius * self.scale,
+            radius=radius * self.scale * self.head_size_ratio,
             enter_editmode=False,
             align='WORLD',
             location=location
@@ -152,7 +160,7 @@ class Character:
 
     def create_body(self, size=(0.5, 0.5, 1.0), location=(0, 0, 0)):
         log("Creating body")
-        body = self.create_mesh_object(
+        body = create_mesh_object(
             "Cube",
             size=1 * self.scale,
             enter_editmode=False,
@@ -172,7 +180,7 @@ class Character:
             log("Invalid ear shape. Creating sphere instead.")
             ear_shape = "Sphere"
 
-        ear = self.create_mesh_object(
+        ear = create_mesh_object(
             ear_shape,
             radius=radius * self.scale,
             enter_editmode=False,
@@ -190,7 +198,7 @@ class Character:
             log("Invalid eye shape. Creating sphere instead.")
             eye_shape = "Sphere"
 
-        eye = self.create_mesh_object(
+        eye = create_mesh_object(
             eye_shape,
             radius=radius * self.scale,
             enter_editmode=False,
@@ -208,7 +216,7 @@ class Character:
             log("Invalid mouth shape. Creating torus instead.")
             mouth_shape = "Torus"
 
-        mouth = self.create_mesh_object(
+        mouth = create_mesh_object(
             mouth_shape,
             major_radius=major_radius * self.scale,
             minor_radius=minor_radius * self.scale,
@@ -227,7 +235,7 @@ class Character:
             log("Invalid arm shape. Creating cylinder instead.")
             arm_shape = "Cylinder"
 
-        arm_part = self.create_mesh_object(
+        arm_part = create_mesh_object(
             arm_shape,
             radius=radius * self.scale,
             depth=length * self.scale,
@@ -247,7 +255,7 @@ class Character:
             log("Invalid leg shape. Creating cylinder instead.")
             leg_shape = "Cylinder"
 
-        leg_part = self.create_mesh_object(
+        leg_part = create_mesh_object(
             leg_shape,
             radius=radius * self.scale,
             depth=length * self.scale,
@@ -263,7 +271,7 @@ class Character:
 
     def create_hat(self, radius=0.5, location=(0, 0, 2.0)):
         log("Creating hat")
-        hat = self.create_mesh_object(
+        hat = create_mesh_object(
             "Sphere",
             radius=radius * self.scale,
             enter_editmode=False,
@@ -288,7 +296,7 @@ class Character:
 
     def create_backpack(self, size=(0.5, 0.3, 0.7), location=(0, -0.3, 0.5)):
         log("Creating backpack")
-        backpack = self.create_mesh_object(
+        backpack = create_mesh_object(
             "Cube",
             size=1 * self.scale,
             enter_editmode=False,
@@ -306,16 +314,10 @@ class Character:
         try:
             if self.armature:
                 if self.head:
-                    self.head.parent = self.armature
-                    self.head.matrix_parent_inverse = self.armature.matrix_world.inverted() # Important for correct parenting
-                    modifier = self.head.modifiers.new(name="Armature", type='ARMATURE')
-                    modifier.object = self.armature
+                    self.parent_to_bone(self.head, self.armature, "HeadBone")
 
                 if self.body:
-                    self.body.parent = self.armature
-                    self.body.matrix_parent_inverse = self.armature.matrix_world.inverted()
-                    modifier = self.body.modifiers.new(name="Armature", type='ARMATURE')
-                    modifier.object = self.armature
+                    self.parent_to_bone(self.body, self.armature, "Spine")
 
                 # Parent other objects to the head or body as appropriate
                 if self.head:
@@ -325,21 +327,43 @@ class Character:
                             obj.matrix_parent_inverse = self.head.matrix_world.inverted()
 
                 if self.body:
-                    for obj in [self.backpack]:
+                    for obj in [self.backpack, self.arm_left_upper, self.arm_left_lower, self.arm_right_upper, self.arm_right_lower, self.leg_left_upper, self.leg_left_lower, self.leg_right_upper, self.leg_right_lower]:
                         if obj:
                             obj.parent = self.body
                             obj.matrix_parent_inverse = self.body.matrix_world.inverted()
 
                 # Parent arms and legs to armature and add armature modifier
-                for part in [self.arm_left_upper, self.arm_left_lower, self.arm_right_upper, self.arm_right_lower, self.leg_left_upper, self.leg_left_lower, self.leg_right_upper, self.leg_right_lower]:
+                for part, bone_name in [(self.arm_left_upper, "ArmLeftUpper"), (self.arm_left_lower, "ArmLeftLower"), (self.arm_right_upper, "ArmRightUpper"), (self.arm_right_lower, "ArmRightLower"), (self.leg_left_upper, "LegLeftUpper"), (self.leg_left_lower, "LegLeftLower"), (self.leg_right_upper, "LegRightUpper"), (self.leg_right_lower, "LegRightLower")]:
                     if part:
-                        part.parent = self.armature
-                        part.matrix_parent_inverse = self.armature.matrix_world.inverted()
-                        modifier = part.modifiers.new(name="Armature", type='ARMATURE')
-                        modifier.object = self.armature
+                        self.parent_to_bone(part, self.armature, bone_name)
 
         except Exception as e:
             log(f"Error parenting objects: {e}")
+
+    def parent_to_bone(self, obj, armature, bone_name):
+        """Parent object to a specific bone in the armature and apply automatic weights."""
+        obj.parent = armature
+        obj.matrix_parent_inverse = armature.matrix_world.inverted()
+
+        # Create armature modifier
+        modifier = obj.modifiers.new(name="Armature", type='ARMATURE')
+        modifier.object = armature
+        modifier.use_deform_preserve_volume = True
+
+        # Apply automatic weights
+        try:
+            bpy.ops.object.select_all(action='DESELECT')
+            bpy.context.view_layer.objects.active = obj
+            obj.select_set(True)
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.object.vertex_group_assign_new()
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+            # Enable automatic weights
+            modifier.use_vertex_groups = True
+        except Exception as e:
+            log(f"Error applying automatic weights to {obj.name}: {e}")
 
     def calculate_volume(self, obj):
         """Calculates the approximate volume of a mesh object."""
@@ -351,6 +375,7 @@ class Character:
             bm.from_mesh(obj.data)
             volume = bm.calc_volume()
             bm.free()
+            self.part_volumes[obj.name] = volume  # Store volume
             return volume
         except Exception as e:
             log(f"Error calculating volume for {obj.name}: {e}")
@@ -363,10 +388,13 @@ class Character:
 
         for obj in [self.head, self.body, self.arm_left_upper, self.arm_left_lower, self.arm_right_upper, self.arm_right_lower, self.leg_left_upper, self.leg_left_lower, self.leg_right_upper, self.leg_right_lower, self.backpack, self.hat, self.ear_left, self.ear_right, self.eye_left, self.eye_right, self.mouth]:
             if obj:
-                volume = self.calculate_volume(obj)
+                volume = self.part_volumes.get(obj.name)  # Use stored volume if available
+                if volume is None:
+                    volume = self.calculate_volume(obj)  # Calculate if not stored
+
                 mass = volume * self.density  # Simplified: mass = volume * density
                 total_mass += mass
-                weighted_sum += mass * Vector(obj.location)
+                weighted_sum += mass * Vector(obj.matrix_world.translation) # Use world location
 
         if total_mass > 0:
             center_of_mass = weighted_sum / total_mass
@@ -382,8 +410,8 @@ class Character:
 
         # Basic check: Is the center of mass above the support polygon (legs)?
         if self.leg_left_lower and self.leg_right_lower:
-            leg_left_loc = Vector(self.leg_left_lower.location)
-            leg_right_loc = Vector(self.leg_right_lower.location)
+            leg_left_loc = Vector(self.leg_left_lower.matrix_world.translation)
+            leg_right_loc = Vector(self.leg_right_lower.matrix_world.translation)
             support_center = (leg_left_loc + leg_right_loc) / 2
             # Check if COM is within a reasonable distance of the support center in X and Y
             if abs(center_of_mass.x - support_center.x) > 0.5 * self.scale or abs(center_of_mass.y - support_center.y) > 0.3 * self.scale:
@@ -449,6 +477,7 @@ class Character:
                 self.backpack = self.create_backpack()
 
             self.parent_objects()
+            self.add_constraints()
 
             if self.validate_model():
                 self.adjust_model()
@@ -461,9 +490,10 @@ class Character:
     def validate_model(self):
         log("Validating model")
         # Example validation: Check if all required parts exist
-        if not all([self.head, self.body, self.leg_left_lower, self.leg_right_lower]):
-            log("Warning: Missing essential parts (head, body, legs).")
-            return False
+        for part_name in self.required_parts:
+            if getattr(self, part_name) is None:
+                log(f"Warning: Missing required part: {part_name}")
+                return False
 
         # Add more sophisticated checks here, e.g., proportion checks,
         # collision detection, etc.
@@ -481,6 +511,52 @@ class Character:
 
         # Add more sophisticated adjustments here, e.g., automatic
         # scaling to maintain proportions, etc.
+
+    def add_constraints(self):
+        """Adds constraints to the armature bones to limit their movement."""
+        log("Adding constraints")
+        if not self.armature:
+            log("Warning: Armature not found. Cannot add constraints.")
+            return
+
+        bpy.context.view_layer.objects.active = self.armature
+        bpy.ops.object.mode_set(mode='POSE')
+
+        # Example: Limit rotation of the arm bones
+        for bone_name in ["ArmLeftUpper", "ArmRightUpper"]:
+            bone = self.armature.pose.bones.get(bone_name)
+            if bone:
+                constraint = bone.constraints.new(type='LIMIT_ROTATION')
+                constraint.owner_space = 'LOCAL'
+                constraint.use_limit_x = True
+                constraint.use_limit_y = True
+                constraint.use_limit_z = True
+                constraint.min_x = math.radians(-90)  # Example limit
+                constraint.max_x = math.radians(90)   # Example limit
+                constraint.min_y = math.radians(-30)
+                constraint.max_y = math.radians(30)
+                constraint.min_z = math.radians(-30)
+                constraint.max_z = math.radians(30)
+                self.constraints[bone_name] = constraint # Store constraint for later access
+
+        # Example: Limit rotation of the leg bones
+        for bone_name in ["LegLeftUpper", "LegRightUpper"]:
+            bone = self.armature.pose.bones.get(bone_name)
+            if bone:
+                constraint = bone.constraints.new(type='LIMIT_ROTATION')
+                constraint.owner_space = 'LOCAL'
+                constraint.use_limit_x = True
+                constraint.use_limit_y = True
+                constraint.use_limit_z = True
+                constraint.min_x = math.radians(-90)  # Example limit
+                constraint.max_x = math.radians(90)   # Example limit
+                constraint.min_y = math.radians(-30)
+                constraint.max_y = math.radians(30)
+                constraint.min_z = math.radians(-30)
+                constraint.max_z = math.radians(30)
+                self.constraints[bone_name] = constraint # Store constraint for later access
+
+        bpy.ops.object.mode_set(mode='OBJECT')
 
 def main():
     # Clear existing objects
