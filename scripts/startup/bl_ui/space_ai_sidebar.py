@@ -5,6 +5,15 @@ import traceback
 import bpy
 import ai_gemini_integration
 
+# 导入修复脚本模块
+try:
+    import fix_gemini_script
+
+    has_fix_script = True
+except ImportError:
+    has_fix_script = False
+    print("警告: 无法导入fix_gemini_script模块，修复脚本功能将不可用", flush=True)
+
 from bpy.types import (
     Panel,
     PropertyGroup,
@@ -82,8 +91,8 @@ class AIAssistantProperties(PropertyGroup):
 class VIEW3D_PT_ai_assistant(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "Blender AI助手"
-    bl_label = "Blender AI助手-智能助手"
+    bl_category = "Blender AI Agent"
+    bl_label = "Blender AI Agent"
     bl_options = {'HIDE_HEADER', 'DEFAULT_CLOSED'}
     bl_order = 0  # 确保面板显示在最上面
 
@@ -116,7 +125,7 @@ class VIEW3D_PT_ai_assistant(Panel):
         # 1. 标题区
         title_box = layout.box()
         title_row = title_box.row()
-        title_row.label(text="Blender AI助手-智能助手", icon='LIGHT')
+        title_row.label(text="Blender AI Agent", icon='OUTLINER_OB_ARMATURE')
 
         # 如果在调试模式下，显示重新初始化按钮
         if bpy.app.debug:
@@ -152,15 +161,21 @@ class VIEW3D_PT_ai_assistant(Panel):
         placeholder = CONFIG.get("default_prompts", {}).get("placeholder_short", "描述你想创建的模型...")
         row_input.prop(ai_props, "message", text="", placeholder=placeholder)
 
-        # 4. 按钮区
+        # 4. 按钮区 - Agent 工作流程
         button_row = layout.row(align=True)
         button_row.scale_y = 1.5  # 增大按钮高度
-        button_row.operator("ai.send_message", text="发送给AI", icon='PLAY')
+        button_row.operator("ai.send_message", text="Agent 建模规划", icon='OUTLINER_OB_LIGHT')
+
+        # 修复脚本错误按钮
+        if has_fix_script:
+            fix_row = layout.row(align=True)
+            fix_row.scale_y = 1.5  # 增大按钮高度
+            fix_row.operator("script.fix_gemini_code", text="Agent 评估反思", icon='OUTLINER_OB_FORCE_FIELD')
 
         # 执行 Blender Python 脚本按钮
         execute_row = layout.row(align=True)
         execute_row.scale_y = 1.5  # 增大按钮高度
-        execute_row.operator("ai.execute_script", text="执行脚本 (类似Alt+P)", icon='SCRIPTPLUGINS')
+        execute_row.operator("ai.execute_script", text="Agent 执行", icon='OUTLINER_OB_ARMATURE')
 
 
 class AI_OT_initialize(bpy.types.Operator):
@@ -200,8 +215,8 @@ class AI_OT_initialize(bpy.types.Operator):
 
 class AI_OT_send_message(bpy.types.Operator):
     bl_idname = "ai.send_message"
-    bl_label = "发送消息"
-    bl_description = "发送消息给 Blender AI助手生成代码（不自动执行）"
+    bl_label = "Agent 建模规划"
+    bl_description = "发送消息给 AI Agent 生成建模规划和代码（不自动执行）"
 
     @classmethod
     def poll(cls, context):
@@ -287,8 +302,8 @@ class AI_OT_send_message(bpy.types.Operator):
 
 class AI_OT_execute_script(bpy.types.Operator):
     bl_idname = "ai.execute_script"
-    bl_label = "执行 Blender Python 脚本"
-    bl_description = f"执行 Blender Python 脚本，类似于 Alt+P"
+    bl_label = "Agent 执行"
+    bl_description = f"Agent 执行生成的 Blender Python 脚本，实现建模规划"
     bl_options = {'REGISTER', 'UNDO'}
 
     _script_path = None
@@ -507,6 +522,16 @@ def force_panel_open_handler(dummy):
 
 def register():
     print("注册 Blender AI助手...", flush=True)
+
+    # 注册修复脚本模块
+    if has_fix_script:
+        try:
+            fix_gemini_script.register()
+            print("  已注册修复脚本模块", flush=True)
+        except Exception as e:
+            print(f"  注册修复脚本模块时出错: {e}", flush=True)
+
+    # 注册其他类
     for cls in classes:
         try:
             bpy.utils.register_class(cls)
@@ -562,6 +587,14 @@ def register():
 
 def unregister():
     print("注销 Blender AI助手...", flush=True)
+
+    # 注销修复脚本模块
+    if has_fix_script:
+        try:
+            fix_gemini_script.unregister()
+            print("  已注销修复脚本模块", flush=True)
+        except Exception as e:
+            print(f"  注销修复脚本模块时出错: {e}", flush=True)
 
     # 从所有处理程序中移除
     handlers = [

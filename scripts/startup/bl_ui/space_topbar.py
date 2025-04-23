@@ -48,11 +48,13 @@ class TOPBAR_HT_upper_bar(Header):
 
         if hasattr(context.scene, "ai_assistant"):
             if context.scene.ai_assistant.keep_open:
-                props = row.operator("ai.toggle_panel", text="Blender AI助手", icon='COMMUNITY')
+                props = row.operator("ai.toggle_panel", text="Blender AI Agent", icon='OUTLINER_OB_ARMATURE')
             else:
-                props = row.popover(panel="VIEW3D_PT_ai_assistant", text="Blender AI助手", icon='COMMUNITY')
+                props = row.popover(
+                    panel="VIEW3D_PT_ai_assistant", text="Blender AI Agent", icon='OUTLINER_OB_ARMATURE'
+                )
         else:
-            props = row.popover(panel="VIEW3D_PT_ai_assistant", text="Blender AI助手", icon='COMMUNITY')
+            props = row.popover(panel="VIEW3D_PT_ai_assistant", text="Blender AI Agent", icon='OUTLINER_OB_ARMATURE')
 
         layout.separator(factor=1.0)
 
