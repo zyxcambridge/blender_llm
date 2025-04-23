@@ -5,208 +5,175 @@ import math
 def log(message):
     print(f"Log: {message}")
 
-def create_head(shape="球体"):
-    log("创建头部")
-    if shape == "球体":
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.5, enter_editmode=False, align='WORLD', location=(0, 0, 1))
+def create_head(name="Head", shape="Sphere", radius=1):
+    log(f"Creating head: {name}, shape: {shape}, radius: {radius}")
+    if shape == "Sphere":
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
         head = bpy.context.object
-        head.name = "Head"
+        head.name = name
         return head
     else:
-        log("不支持的头部形状")
+        log(f"Error: Unknown head shape: {shape}")
         return None
 
-def create_ear(shape="小球体", location=(0, 0, 0), rotation=(0, 0, 0)):
-    log("创建耳朵")
-    if shape == "小球体":
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.15, enter_editmode=False, align='WORLD', location=location)
+def create_ear(name="Ear", shape="Sphere", radius=0.2, offset=(0.7, 0.5, 0.5)):
+    log(f"Creating ear: {name}, shape: {shape}, radius: {radius}, offset: {offset}")
+    if shape == "Sphere":
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=offset, scale=(1, 1, 1))
         ear = bpy.context.object
-        ear.name = "Ear"
-        ear.rotation_euler = rotation
+        ear.name = name
         return ear
     else:
-        log("不支持的耳朵形状")
+        log(f"Error: Unknown ear shape: {shape}")
         return None
 
-def create_eye(shape="球体", location=(0, 0, 0)):
-    log("创建眼睛")
-    if shape == "球体":
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.1, enter_editmode=False, align='WORLD', location=location)
+def create_eye(name="Eye", shape="Sphere", radius=0.15, offset=(0.4, 0.7, 0.3)):
+    log(f"Creating eye: {name}, shape: {shape}, radius: {radius}, offset: {offset}")
+    if shape == "Sphere":
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=offset, scale=(1, 1, 1))
         eye = bpy.context.object
-        eye.name = "Eye"
+        eye.name = name
         return eye
     else:
-        log("不支持的眼睛形状")
+        log(f"Error: Unknown eye shape: {shape}")
         return None
 
-def create_mouth(shape="甜甜圈", location=(0, 0, 0)):
-    log("创建嘴巴")
-    if shape == "甜甜圈":
-        bpy.ops.mesh.primitive_torus_add(major_radius=0.2, minor_radius=0.05, enter_editmode=False, align='WORLD', location=location)
+def create_mouth(name="Mouth", shape="Torus", major_radius=0.3, minor_radius=0.1, offset=(0, -0.6, 0)):
+    log(f"Creating mouth: {name}, shape: {shape}, major_radius: {major_radius}, minor_radius: {minor_radius}, offset: {offset}")
+    if shape == "Torus":
+        bpy.ops.mesh.primitive_torus_add(major_radius=major_radius, minor_radius=minor_radius, enter_editmode=False, align='WORLD', location=offset, rotation=(math.pi/2, 0, 0), scale=(1, 1, 1))
         mouth = bpy.context.object
-        mouth.name = "Mouth"
-        mouth.rotation_euler[0] = math.radians(90)
+        mouth.name = name
         return mouth
     else:
-        log("不支持的嘴巴形状")
+        log(f"Error: Unknown mouth shape: {shape}")
         return None
 
-def create_arm(shape="细长圆柱体", location=(0, 0, 0), rotation=(0, 0, 0)):
-    log("创建手臂")
-    if shape == "细长圆柱体":
-        bpy.ops.mesh.primitive_cylinder_add(radius=0.08, depth=0.8, enter_editmode=False, align='WORLD', location=location)
+def create_arm(name="Arm", shape="Cylinder", length=1.2, radius=0.1, offset=(1.2, 0, 0)):
+    log(f"Creating arm: {name}, shape: {shape}, length: {length}, radius: {radius}, offset: {offset}")
+    if shape == "Cylinder":
+        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, enter_editmode=False, align='WORLD', location=offset, rotation=(0, 0, math.pi/2), scale=(1, 1, 1))
         arm = bpy.context.object
-        arm.name = "Arm"
-        arm.rotation_euler = rotation
+        arm.name = name
         return arm
     else:
-        log("不支持的手臂形状")
+        log(f"Error: Unknown arm shape: {shape}")
         return None
 
-def create_leg(shape="较粗圆柱体", location=(0, 0, 0), rotation=(0, 0, 0)):
-    log("创建腿部")
-    if shape == "较粗圆柱体":
-        bpy.ops.mesh.primitive_cylinder_add(radius=0.12, depth=1, enter_editmode=False, align='WORLD', location=location)
+def create_leg(name="Leg", shape="Cylinder", length=1.5, radius=0.2, offset=(0.4, 0, -1.5)):
+    log(f"Creating leg: {name}, shape: {shape}, length: {length}, radius: {radius}, offset: {offset}")
+    if shape == "Cylinder":
+        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, enter_editmode=False, align='WORLD', location=offset, scale=(1, 1, 1))
         leg = bpy.context.object
-        leg = bpy.context.object
-        leg.name = "Leg"
-        leg.rotation_euler = rotation
+        leg.name = name
         return leg
     else:
-        log("不支持的腿部形状")
+        log(f"Error: Unknown leg shape: {shape}")
         return None
 
-def create_backpack():
-    log("创建背包")
-    bpy.ops.mesh.primitive_cube_add(size=0.4, enter_editmode=False, align='WORLD', location=(0, -0.3, 0.5))
+def create_hat(name="Hat", shape="HalfSphere", radius=0.6, offset=(0, 0, 1.3)):
+    log(f"Creating hat: {name}, shape: {shape}, radius: {radius}, offset: {offset}")
+    if shape == "HalfSphere":
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=offset, scale=(1, 1, 1))
+        hat = bpy.context.object
+        hat.name = name
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        bm = bmesh.from_edit_mesh(hat.data)
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < offset[2]], context='VERTS')
+        bmesh.update_edit_mesh(hat.data)
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+        return hat
+    else:
+        log(f"Error: Unknown hat shape: {shape}")
+        return None
+
+def create_backpack(name="Backpack", offset=(1.5, -0.3, 0.2)):
+    log(f"Creating backpack: {name}, offset: {offset}")
+    bpy.ops.mesh.primitive_cube_add(enter_editmode=False, align='WORLD', location=offset, scale=(0.5, 0.7, 0.8))
     backpack = bpy.context.object
-    backpack.name = "Backpack"
-    backpack.scale[1] = 0.5
+    backpack.name = name
     return backpack
 
-def check_mechanics(head, arms, legs):
-    log("检查力学原理")
-    if head and arms and legs:
-        # 简单重心检查
-        total_mass = 1.0  # 假设头部质量为1
-        center_x = 0.0
-        center_y = 0.0
-        center_z = 1.0 # 头部中心
-        
-        # 检查腿部支撑
-        if legs:
-            leg_count = len(legs)
-            if leg_count > 0:
-                log("腿部支撑结构良好")
-            else:
-                log("警告：没有腿部，角色无法站立")
-        else:
-            log("警告：没有腿部，角色无法站立")
-        
-        log(f"重心: ({center_x}, {center_y}, {center_z})")
-    else:
-        log("力学原理检查失败：缺少关键部件")
+def check_mechanics(objects):
+    log("Checking mechanics...")
+    # Basic check: all objects exist
+    if not all(objects):
+        log("Warning: Some objects are missing, mechanics check incomplete.")
+        return False
 
-def check_physics():
-    log("检查物理原理")
-    # 简单检查，可以添加更复杂的物理模拟检查
-    log("物理原理检查通过 (简单检查)")
+    # More sophisticated checks would go here, e.g., center of mass, stability, etc.
+    log("Mechanics check passed (basic).")
+    return True
 
-def check_appearance():
-    log("检查外观")
-    log("外观检查通过")
+def check_physics(objects):
+    log("Checking physics...")
+    # Basic check: all objects exist
+    if not all(objects):
+        log("Warning: Some objects are missing, physics check incomplete.")
+        return False
 
-def check_structure(head, ears, eyes, mouth, arms, legs, backpack=None):
-    log("检查结构")
-    if head:
-        log("头部结构良好")
-    else:
-        log("警告：缺少头部")
+    # More sophisticated checks would go here, e.g., fluid flow, sealing, etc.
+    log("Physics check passed (basic).")
+    return True
 
-    if ears:
-        log("耳朵结构良好")
-    else:
-        log("警告：缺少耳朵")
+def check_appearance(objects):
+    log("Checking appearance...")
+    # Basic check: all objects exist
+    if not all(objects):
+        log("Warning: Some objects are missing, appearance check incomplete.")
+        return False
 
-    if eyes:
-        log("眼睛结构良好")
-    else:
-        log("警告：缺少眼睛")
+    # More sophisticated checks would go here, e.g., proportions, aesthetics, etc.
+    log("Appearance check passed (basic).")
+    return True
 
-    if mouth:
-        log("嘴巴结构良好")
-    else:
-        log("警告：缺少嘴巴")
+def check_structure(objects):
+    log("Checking structure...")
+    # Basic check: all objects exist
+    if not all(objects):
+        log("Warning: Some objects are missing, structure check incomplete.")
+        return False
 
-    if arms:
-        log("手臂结构良好")
-    else:
-        log("警告：缺少手臂")
-
-    if legs:
-        log("腿部结构良好")
-    else:
-        log("警告：缺少腿部")
-
-    if backpack:
-        log("背包结构良好")
-    else:
-        log("没有背包")
+    # More sophisticated checks would go here, e.g., connections, functionality, etc.
+    log("Structure check passed (basic).")
+    return True
 
 def main():
-    character_name = "小黄人"
-    log(f"开始创建角色：{character_name}")
+    character_name = "CartoonCharacter"
+    head = create_head(name="Head", shape="Sphere", radius=1.0)
+    ear_left = create_ear(name="Ear.L", shape="Sphere", radius=0.2, offset=(-0.7, 0.5, 0.5))
+    ear_right = create_ear(name="Ear.R", shape="Sphere", radius=0.2, offset=(0.7, 0.5, 0.5))
+    eye_left = create_eye(name="Eye.L", shape="Sphere", radius=0.15, offset=(-0.4, 0.7, 0.3))
+    eye_right = create_eye(name="Eye.R", shape="Sphere", radius=0.15, offset=(0.4, 0.7, 0.3))
+    mouth = create_mouth(name="Mouth", shape="Torus", major_radius=0.3, minor_radius=0.1, offset=(0, -0.6, 0))
+    arm_left = create_arm(name="Arm.L", shape="Cylinder", length=1.2, radius=0.1, offset=(-1.2, 0, 0))
+    arm_right = create_arm(name="Arm.R", shape="Cylinder", length=1.2, radius=0.1, offset=(1.2, 0, 0))
+    leg_left = create_leg(name="Leg.L", shape="Cylinder", length=1.5, radius=0.2, offset=(-0.4, 0, -1.5))
+    leg_right = create_leg(name="Leg.R", shape="Cylinder", length=1.5, radius=0.2, offset=(0.4, 0, -1.5))
+    hat = create_hat(name="Hat", shape="HalfSphere", radius=0.6, offset=(0, 0, 1.3))
+    backpack = create_backpack(name="Backpack", offset=(1.5, -0.3, 0.2))
 
-    # 创建头部
-    head = create_head()
+    objects_to_join = [head, ear_left, ear_right, eye_left, eye_right, mouth, arm_left, arm_right, leg_left, leg_right, hat, backpack]
+    objects_to_join = [obj for obj in objects_to_join if obj is not None]
 
-    # 创建耳朵
-    ear_left = create_ear(location=(0.5, 0, 1.5), rotation=(0, 0, 0))
-    ear_right = create_ear(location=(-0.5, 0, 1.5), rotation=(0, 0, 0))
-    ears = [ear_left, ear_right]
+    if not objects_to_join:
+        log("Error: No objects to join.")
+        return
 
-    # 创建眼睛
-    eye_left = create_eye(location=(0.3, 0.45, 1))
-    eye_right = create_eye(location=(-0.3, 0.45, 1))
-    eyes = [eye_left, eye_right]
+    check_mechanics(objects_to_join)
+    check_physics(objects_to_join)
+    check_appearance(objects_to_join)
+    check_structure(objects_to_join)
 
-    # 创建嘴巴
-    mouth = create_mouth(location=(0, -0.2, 0.7))
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in objects_to_join:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = head
 
-    # 创建手臂
-    arm_left = create_arm(location=(0.7, 0, 0.5), rotation=(0, 0, math.radians(90)))
-    arm_right = create_arm(location=(-0.7, 0, 0.5), rotation=(0, 0, math.radians(-90)))
-    arms = [arm_left, arm_right]
-
-    # 创建腿部
-    leg_left = create_leg(location=(0.2, 0, -0.5))
-    leg_right = create_leg(location=(-0.2, 0, -0.5))
-    legs = [leg_left, leg_right]
-
-    # 创建背包
-    backpack = create_backpack()
-
-    # 结构检查
-    check_structure(head, ears, eyes, mouth, arms, legs, backpack)
-
-    # 力学、物理、外观检查
-    check_mechanics(head, arms, legs)
-    check_physics()
-    check_appearance()
-
-    # 合并对象
-    all_objects = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH']
-    if all_objects:
-        bpy.ops.object.select_all(action='DESELECT')
-        for obj in all_objects:
-            obj.select_set(True)
-            bpy.context.view_layer.objects.active = obj
-        bpy.ops.object.join()
-        bpy.context.object.name = character_name
-        log(f"角色 {character_name} 创建完成")
-    else:
-        log("没有可合并的对象")
-
-    return 0
+    bpy.ops.object.join()
+    bpy.context.object.name = character_name
+    log(f"Created character: {character_name}")
 
 bpy.app.timers.register(main)
