@@ -7,6 +7,11 @@ make -j16 && /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Cont
 
 /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Contents/MacOS/Blender
 
+
+执行脚本过程中，如果遇到错误，需要提供错误信息，以便进行调试和修复。打印错误信息到控制台
+
+
+
 程序一打开 ， Blender AI助手 的面板就是 打开的，且 始终在前端显示，一直显示再前端，任何操都不会隐藏 这个面板
 只要4部分，
 1. 标题： 保留Blender AI助手-智能助手

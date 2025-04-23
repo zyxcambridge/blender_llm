@@ -275,11 +275,6 @@ def generate_blender_code(prompt_text):
         print(f"[Gemini - {model_name}] 错误: {error_msg}", flush=True)
         print(traceback.format_exc(), flush=True)
         return False, error_msg
-    except json.JSONDecodeError:
-        # Should be caught by HTTPError usually, but as a fallback
-        error_msg = f"无法解析 API 响应 (非有效 JSON)。状态码: {response.status_code if 'response' in locals() else 'N/A'}. 响应文本: {response.text if 'response' in locals() else '无响应对象'}"
-        print(f"[Gemini - {model_name}] 错误: {error_msg}", flush=True)
-        return False, error_msg
     except Exception as e:
         # Catch any other unexpected errors during generation setup/parsing
         error_msg = f"生成代码过程中发生意外错误: {type(e).__name__} - {str(e)}"
@@ -416,12 +411,6 @@ def execute_blender_code(code: str):
         result_message = "脚本执行成功完成。"
         print(f"[AI Code Execution] {result_message}", flush=True)
 
-    except SyntaxError as syn_err:
-        success = False
-        # 对于语法错误， traceback 可能不够详细，直接格式化错误信息
-        error_info = f"语法错误:\n  错误: {syn_err.msg}\n  行号: {syn_err.lineno}\n  位置: {syn_err.offset}\n  代码行: '{syn_err.text.rstrip()}'"
-        result_message = f"❌ 脚本执行失败 (SyntaxError):\n{error_info}"
-        print(f"[AI Code Execution] {result_message}", flush=True)
     except Exception as e:
         success = False
         # 使用 traceback.format_exc() 获取完整的错误堆栈信息
@@ -523,6 +512,10 @@ def send_message_to_gemini(message, conversation_history=None, is_refinement=Fal
            - 手动选择目标对象 obj.select_set(True)
            - 设置活动对象 bpy.context.view_layer.objects.active = obj
            - 然后执行合并
+
+        4. **新增: `primitive_torus_add` 参数规则:**
+        - 调用 `bpy.ops.mesh.primitive_torus_add` 时，**必须** 使用 `major_radius` 和 `minor_radius` 参数来定义圆环的大小。
+        - **绝对禁止** 在 `bpy.ops.mesh.primitive_torus_add` 调用中使用 `radius=` 或 `tube=` 参数。
 
         只返回Python代码，使用Markdown代码块格式(```python ... ```)包装你的代码。不要包含任何解释或额外文本。
         """
