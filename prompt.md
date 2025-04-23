@@ -13,7 +13,11 @@ make -j16 && /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Cont
 执行脚本(类似Alt+P) agent 执行
 
 
-修改代码的逻辑是，每次把代码请求 genimi ，genimi告诉你错误，你再针对性的修改，直到genimi 不再报错，然后执行脚本。
+修改fix_gemini_script 代码的方法是，每次把代码请求 genimi ，
+gemini 要检查，现在的各个组件，是否满足系统论，控制论，信息论，链接是否正常，
+力学是否满足，
+如果有错误，就告诉 genimi 错误信息，
+genimi告诉你错误，你再针对性的修改，直到genimi 不再报错，然后执行脚本。
 
 
 

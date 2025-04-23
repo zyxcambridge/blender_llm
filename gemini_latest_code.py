@@ -1,94 +1,160 @@
 import bpy
 import bmesh
 import math
-import logging
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 def log(message):
-    logging.info(message)
-def clear_scene():
-    log("Clearing the scene")
-    bpy.ops.object.select_all(action='SELECT')
-    bpy.ops.object.delete(use_global=False)
-def create_base():
-    log("Creating the base")
-    bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 0))
-    base = bpy.context.active_object
-    base.name = "Base"
-    base.scale = (1, 1, 0.1)
-    return base
-def create_support(base):
-    log("Creating the support")
-    bpy.ops.mesh.primitive_cylinder_add(radius=0.2, depth=1, location=(0, 0, 0.6))
-    support = bpy.context.active_object
-    support.name = "Support"
-    return support
-def create_top(support):
-    log("Creating the top")
-    bpy.ops.mesh.primitive_torus_add(
-        location=(0, 0, 1.2),
-        rotation=(0, 0, 0),
-        major_radius=0.4,
-        minor_radius=0.1
-    )
-    top = bpy.context.active_object
-    top.name = "Top"
-    return top
-def create_handle(top):
-    log("Creating the handle")
-    bpy.ops.curve.primitive_bezier_circle_add(radius=0.5, enter_editmode=False, align='WORLD', location=(0, 0, 1.7))
-    handle_curve = bpy.context.active_object
-    handle_curve.name = "Handle_Curve"
-    bpy.ops.mesh.primitive_circle_add(radius=0.05, location=(0.6, 0, 1.7))
-    handle_profile = bpy.context.active_object
-    handle_profile.name = "Handle_Profile"
-    bpy.context.view_layer.objects.active = handle_profile
-    handle_profile.data.bevel_object = handle_curve
-    return handle_profile
-def set_material(obj, color):
-    log(f"Setting material for {obj.name} to {color}")
-    material = bpy.data.materials.new(name=f"{obj.name}_Material")
-    material.use_nodes = True
-    bsdf = material.node_tree.nodes["Principled BSDF"]
-    bsdf.inputs["Base Color"].default_value = color + (1)
-    obj.data.materials.append(material)
-def check_mechanics(base, support, top, handle):
+    print(f"Log: {message}")
+def create_head(head_shape="Sphere", radius=1.0):
+    log("Creating head")
+    if head_shape == "Sphere":
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=(0, 0, 0))
+        head = bpy.context.object
+    else:
+        log("Invalid head shape. Creating sphere instead.")
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=(0, 0, 0))
+        head = bpy.context.object
+    head.name = "Head"
+    return head
+def create_ear(ear_shape="Sphere", radius=0.2, offset=(0.7, 0, 0.8)):
+    log("Creating ear")
+    if ear_shape == "Sphere":
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=offset)
+        ear = bpy.context.object
+    else:
+        log("Invalid ear shape. Creating sphere instead.")
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=offset)
+        ear = bpy.context.object
+    ear.name = "Ear"
+    return ear
+def create_eye(eye_shape="Sphere", radius=0.15, offset=(0.4, 0.5, 0.3)):
+    log("Creating eye")
+    if eye_shape == "Sphere":
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=offset)
+        eye = bpy.context.object
+    else:
+        log("Invalid eye shape. Creating sphere instead.")
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=offset)
+        eye = bpy.context.object
+    eye.name = "Eye"
+    return eye
+def create_mouth(mouth_shape="Torus", major_radius=0.4, minor_radius=0.1, offset=(0, -0.6, 0)):
+    log("Creating mouth")
+    if mouth_shape == "Torus":
+        bpy.ops.mesh.primitive_torus_add(
+            location=offset,
+            rotation=(0, 0, 0),
+            major_radius=major_radius,
+            minor_radius=minor_radius
+        )
+        mouth = bpy.context.object
+    else:
+        log("Invalid mouth shape. Creating torus instead.")
+        bpy.ops.mesh.primitive_torus_add(
+            location=offset,
+            rotation=(0, 0, 0),
+            major_radius=major_radius,
+            minor_radius=minor_radius
+        )
+        mouth = bpy.context.object
+    mouth.name = "Mouth"
+    return mouth
+def create_arm(arm_shape="Cylinder", length=1.0, radius=0.08, offset=(1.2, 0, 0)):
+    log("Creating arm")
+    if arm_shape == "Cylinder":
+        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, location=offset)
+        arm = bpy.context.object
+    else:
+        log("Invalid arm shape. Creating cylinder instead.")
+        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, location=offset)
+        arm = bpy.context.object
+    arm.name = "Arm"
+    return arm
+def create_leg(leg_shape="Cylinder", length=1.2, radius=0.15, offset=(0, -1.2, 0)):
+    log("Creating leg")
+    if leg_shape == "Cylinder":
+        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, location=offset)
+        leg = bpy.context.object
+    else:
+        log("Invalid leg shape. Creating cylinder instead.")
+        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, location=offset)
+        leg = bpy.context.object
+    leg.name = "Leg"
+    return leg
+def create_hat(radius=0.5, offset=(0, 0, 1.2)):
+    log("Creating hat")
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=offset)
+    hat = bpy.context.object
+    hat.name = "Hat"
+    # Cut the sphere in half to create a hemisphere
+    bpy.ops.object.mode_set(mode='EDIT')
+    bm = bmesh.new()
+    bm.from_mesh(hat.data)
+    for v in bm.verts:
+        if v.co.z < offset[2]:
+            v.select = True
+    bmesh.ops.delete(bm, geom=bm.verts, context='VERTS')
+    bm.to_mesh(hat.data)
+    hat.data.update()
+    bm.free()
+    bpy.ops.object.mode_set(mode='OBJECT')
+    return hat
+def create_backpack(size=(0.5, 0.3, 0.7), offset=(0, -0.2, 0.5)):
+    log("Creating backpack")
+    bpy.ops.mesh.primitive_cube_add(size=1, location=offset)
+    backpack = bpy.context.object
+    backpack.name = "Backpack"
+    backpack.scale = size
+    return backpack
+def check_mechanics(character):
     log("Checking mechanics")
-    # Basic check: Support is above the base
-    if support.location[2] <= base.location[2]:
-        log("Warning: Support is not above the base.")
-    # Basic check: Top is above the support
-    if top.location[2] <= support.location[2]:
-        log("Warning: Top is not above the support.")
-    # Basic check: Handle is above the top
-    if handle.location[2] <= top.location[2]:
-        log("Warning: Handle is not above the top.")
-def check_physics(base, support, top, handle):
+    # Basic check: ensure the character is not ridiculously unbalanced
+    # This is a placeholder; a real check would involve more complex calculations
+    if character.location.z < -5:
+        log("Warning: Character is very low. Check leg length and position.")
+    else:
+        log("Mechanics check passed (basic).")
+def check_physics(character):
     log("Checking physics")
-    # Placeholder for physics checks (e.g., stability, fluid flow)
-    pass
-def check_appearance(base, support, top, handle):
+    # Placeholder for physics checks (e.g., fluid flow, sealing)
+    log("Physics check passed (placeholder).")
+def check_appearance(character):
     log("Checking appearance")
     # Placeholder for appearance checks (e.g., proportions, aesthetics)
-    pass
-def check_structure(base, support, top, handle):
+    log("Appearance check passed (placeholder).")
+def check_structure(character):
     log("Checking structure")
-    # Placeholder for structure checks (e.g., connections, component placement)
-    pass
+    # Placeholder for structural checks (e.g., connections, component placement)
+    log("Structure check passed (placeholder).")
 def main():
-    log("Starting the main function")
-    clear_scene()
-    base = create_base()
-    support = create_support(base)
-    top = create_top(support)
-    handle = create_handle(top)
-    set_material(base, (0.8, 0.2, 0.2))  # Reddish
-    set_material(support, (0.5, 0.5, 0.5))  # Gray
-    set_material(top, (0.2, 0.8, 0.2))  # Greenish
-    set_material(handle, (0.2, 0.2, 0.8))  # Blueish
-    check_mechanics(base, support, top, handle)
-    check_physics(base, support, top, handle)
-    check_appearance(base, support, top, handle)
-    check_structure(base, support, top, handle)
-    log("Finished the main function")
+    character_name = "CartoonCharacter"
+    head = create_head(head_shape="Sphere")
+    ear_left = create_ear(ear_shape="Sphere", offset=(0.7, 0.5, 0.8))
+    ear_right = create_ear(ear_shape="Sphere", offset=(-0.7, 0.5, 0.8))
+    eye_left = create_eye(eye_shape="Sphere", offset=(0.4, 0.5, 0.3))
+    eye_right = create_eye(eye_shape="Sphere", offset=(-0.4, 0.5, 0.3))
+    mouth = create_mouth(mouth_shape="Torus")
+    arm_left = create_arm(arm_shape="Cylinder", offset=(1.2, 0, 0))
+    arm_right = create_arm(arm_shape="Cylinder", offset=(-1.2, 0, 0))
+    leg_left = create_leg(leg_shape="Cylinder", offset=(0.5, -1.2, 0))
+    leg_right = create_leg(leg_shape="Cylinder", offset=(-0.5, -1.2, 0))
+    hat = create_hat()
+    backpack = create_backpack()
+    # Join all objects into one
+    log("Joining objects")
+    objects_to_join = [head, ear_left, ear_right, eye_left, eye_right, mouth, arm_left, arm_right, leg_left, leg_right, hat, backpack]
+    # Deselect all objects
+    bpy.ops.object.select_all(action='DESELECT')
+    # Select the objects to join
+    for obj in objects_to_join:
+        obj.select_set(True)
+    # Set the active object (the one that will be the parent after joining)
+    bpy.context.view_layer.objects.active = head
+    # Join the objects
+    bpy.ops.object.join()
+    # Rename the joined object
+    head.name = character_name
+    log("Model created and named: " + character_name)
+    check_mechanics(head)
+    check_physics(head)
+    check_appearance(head)
+    check_structure(head)
 bpy.app.timers.register(main)
