@@ -27,6 +27,30 @@ class AIAssistantProperties(PropertyGroup):
     reflection_count: IntProperty(name="反思次数", description="Gemini反思/评估最大次数", default=5, min=1, max=20)
 
 
+# 自动展开 Outliner 树
+import bpy
+
+def expand_outliner():
+    for window in bpy.context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type == 'OUTLINER':
+                for region in area.regions:
+                    if region.type == 'WINDOW':
+                        override = {
+                            'window': window,
+                            'screen': window.screen,
+                            'area': area,
+                            'region': region,
+                            'scene': bpy.context.scene,
+                        }
+                        try:
+                            bpy.ops.outliner.show_hierarchy(override)
+                        except Exception as e:
+                            print(f"[Outliner Auto Expand] Error: {e}", flush=True)
+                        return  # 只展开第一个找到的 Outliner
+    # 如果没找到，延迟重试
+    return 1.0
+
 # Register the classes
 def register():
     print("Registering AI Assistant properties from init script...", flush=True)
@@ -56,9 +80,15 @@ def register():
     except Exception as e:
         print(f"ERROR registering AI Assistant properties: {e}", flush=True)
 
+    # 注册定时器，Blender 启动后自动展开 Outliner
+    bpy.app.timers.register(expand_outliner, first_interval=1)
+
 
 # Unregister the classes
 def unregister():
+    # 取消定时器（如果有需要，可以用更复杂的方式追踪定时器，但Blender会在关闭时自动清理）
+    pass
+
     print("Unregistering AI Assistant properties from init script...", flush=True)
     try:
         # Remove the property group
