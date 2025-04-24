@@ -80,13 +80,13 @@ EVALUATION_PROMPT_TEMPLATE = """
 
 # 定义修复提示模板
 FIX_PROMPT_TEMPLATE = """
-我按照您的建议修复了代码，但仍然存在一些问题。以下是错误信息:
+我按照您的建议修复了代码，但仍然存在一些问题。以下是错误信息：
 
 {error_message}
 
 请帮我进一步修复代码，确保它能够正常运行，并且满足系统论、控制论、信息论的原则，以及链接和力学正常。
 
-当前代码:
+当前代码：
 ```python
 {code}
 ```
@@ -561,6 +561,38 @@ class SCRIPT_OT_evaluate_fix_gemini_code(bpy.types.Operator):
             # 强制刷新所有面板，显示开始评估的消息
             for area in context.screen.areas:
                 area.tag_redraw()
+
+        # 新功能：如果用户在输入框中提供新的要求，则先调整脚本
+        if hasattr(context.scene, "ai_assistant"):
+            ai_props = context.scene.ai_assistant
+            user_req = ai_props.message.strip()
+            print(f"[Gemini预处理] 读取到用户要求: {user_req}", flush=True)
+            if user_req:
+                ai_props.message = ""
+                script_path = get_script_path()
+                try:
+                    with open(script_path, 'r', encoding='utf-8') as f:
+                        current_code = f.read()
+                    prompt = f"请根据以下要求修改现有脚本：\n{user_req}\n\n现有脚本内容：\n{current_code}"
+                    gen_success, gen_result = ai_gemini_integration.generate_blender_code(prompt)
+                    if gen_success:
+                        with open(script_path, 'w', encoding='utf-8') as f:
+                            f.write(gen_result)
+                        upd_msg = ai_props.messages.add()
+                        upd_msg.text = f"🔄 根据用户要求修改脚本：{user_req}"
+                        upd_msg.is_user = False
+                        ai_props.active_message_index = len(ai_props.messages) - 1
+                    else:
+                        error_text = gen_result if isinstance(gen_result, str) else str(gen_result)
+                        err_msg = ai_props.messages.add()
+                        err_msg.text = f"❌ 修改脚本失败：{error_text}"
+                        err_msg.is_user = False
+                        return {'CANCELLED'}
+                except Exception as e:
+                    err_msg = ai_props.messages.add()
+                    err_msg.text = f"❌ 修改脚本时出错：{e}"
+                    err_msg.is_user = False
+                    return {'CANCELLED'}
 
         # 执行评估并修复脚本操作
         success, message = evaluate_and_fix_code(max_iterations=self.max_iterations)
