@@ -185,7 +185,10 @@ class VIEW3D_PT_ai_assistant(Panel):
         if has_fix_script:
             fix_row = layout.row(align=True)
             fix_row.scale_y = 1.5  # 增大按钮高度
-            fix_row.operator("script.fix_gemini_code", text="Agent 评估反思", icon='OUTLINER_OB_FORCE_FIELD')
+            op = fix_row.operator("script.evaluate_fix_gemini_code", text="Agent 评估反思", icon='OUTLINER_OB_FORCE_FIELD')
+            # 新增：反思次数输入框，紧挨着按钮
+            fix_row.prop(ai_props, "reflection_count", text="反思次数")
+            op.max_iterations = ai_props.reflection_count
 
         # 执行 Blender Python 脚本按钮
         execute_row = layout.row(align=True)
@@ -258,19 +261,48 @@ class AI_OT_send_message(bpy.types.Operator):
 
         ai_response_text = "处理中..."
         try:
-            import ai_gemini_integration
+            import os
+            import importlib
+            use_openai = False
+            openai_success = False
+            openai_result = None
 
-            print(f"\n==== Calling Gemini: {user_input} ====", flush=True)
-            success, result = ai_gemini_integration.generate_blender_code(user_input)
+            if os.environ.get("GITHUB_TOKEN"):
+                try:
+                    ai_openai_integration = importlib.import_module("ai_openai_integration")
+                    use_openai = True
+                except ImportError:
+                    use_openai = False
 
-            if success:
-                print("[Gemini] 代码生成成功。", flush=True)
-                generated_code = result
+            if use_openai:
+                print(f"\n==== Calling OpenAI GPT-4.1: {user_input} ====", flush=True)
+                try:
+                    success, result = ai_openai_integration.generate_blender_code(user_input)
+                    openai_success = success
+                    openai_result = result
+                except Exception as e:
+                    print(f"[OpenAI] 调用失败: {e}", flush=True)
+                    openai_success = False
+                    openai_result = f"OpenAI API 调用异常: {e}"
+            else:
+                import ai_gemini_integration
+                print(f"\n==== Calling Gemini: {user_input} ====", flush=True)
+                success, result = ai_gemini_integration.generate_blender_code(user_input)
+                openai_success = success
+                openai_result = result
+
+            if openai_success:
+                print("[AI] 代码生成成功。", flush=True)
+                generated_code = openai_result
                 code_snippet = generated_code.strip().split('\n')
                 display_code = "\n".join(code_snippet[:8]) + ("\n..." if len(code_snippet) > 8 else "")
                 ai_response_text = f"✅ 代码已生成:\n```python\n{display_code}\n```\n"
 
-                save_dir = ai_gemini_integration.get_code_save_directory()
+                # 代码保存路径兼容
+                if use_openai:
+                    save_dir = os.getcwd()
+                else:
+                    save_dir = ai_gemini_integration.get_code_save_directory()
                 script_path = os.path.join(save_dir, SCRIPT_FILENAME)
                 try:
                     os.makedirs(save_dir, exist_ok=True)
@@ -285,8 +317,28 @@ class AI_OT_send_message(bpy.types.Operator):
                 ai_response_text += f"\n✅ 代码已生成并保存到 {script_path}"
                 ai_response_text += "\nℹ️ 请点击'执行脚本 (类似Alt+P)'按钮执行代码"
             else:
-                ai_response_text = f"❌ Gemini API 错误: {result}"
-                print(f"[Gemini] API 错误: {result}", flush=True)
+                # 自动调用AI评估和修复功能
+                print(f"[AI] 代码生成失败，尝试自动评估和修复...", flush=True)
+                fix_result = None
+                if use_openai:
+                    try:
+                        success_fix, fix_result = ai_openai_integration.evaluate_and_fix_code("", openai_result)
+                    except Exception as e:
+                        success_fix = False
+                        fix_result = f"OpenAI 评估修复异常: {e}"
+                else:
+                    try:
+                        success_fix, fix_result = ai_gemini_integration.evaluate_and_fix_code("", result)
+                    except Exception as e:
+                        success_fix = False
+                        fix_result = f"Gemini 评估修复异常: {e}"
+                ai_response_text = f"❌ 代码生成失败: {openai_result if use_openai else result}\n"
+                if success_fix and fix_result:
+                    ai_response_text += f"\n🛠️ 自动评估与修复建议:\n{fix_result}"
+                else:
+                    ai_response_text += f"\n⚠️ 自动评估与修复失败: {fix_result}"
+                print(f"[AI] 自动评估与修复结果: {fix_result}", flush=True)
+
         except Exception as e:
             ai_response_text = f"❌ 未知错误: {e}"
             print(f"[Error] {ai_response_text}\n{traceback.format_exc()}", flush=True)

@@ -1,5 +1,14 @@
 # 3D Moder Copilot
 
+---
+
+## 🆕 Blender AI Assistant Yixin 插件
+
+- [插件使用文档（中文）](https://github.com/zyxcambridge/blender_llm/blob/ai_agent_1.0/blender_ai_assistant_yixin/README.md)
+- [点击下载插件安装包（ZIP）](https://github.com/zyxcambridge/blender_llm/blob/ai_agent_1.0/blender_ai_assistant_yixin/blender_ai_assistant_yixin.zip?raw=true)
+
+---
+
 [![3D Moder Copilot 演示](images/video-poster.jpg)](https://zyxcambridge.github.io/blender_llm/)
 
 ## AI-Powered Assistant for Blender

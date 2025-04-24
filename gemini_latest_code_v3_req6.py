@@ -1,293 +1,277 @@
 import bpy
 import bmesh
 import math
-import mathutils
-
-# --- 全局参数 ---
-CHARACTER_NAME = "CartoonCharacter"
-BODY_RADIUS = 0.5
-BODY_DEPTH = 2.0
-HEAD_RADIUS = 1.0
-NECK_RADIUS = 0.3
-NECK_DEPTH = 0.5
-EAR_RADIUS = 0.2
-EYE_RADIUS = 0.15
-MOUTH_MAJOR_RADIUS = 0.4
-MOUTH_MINOR_RADIUS = 0.1
-ARM_RADIUS = 0.1
-ARM_LENGTH = 1.0
-LEG_RADIUS = 0.2
-LEG_LENGTH = 1.2
-HAT_RADIUS = 0.6
-BACKPACK_SIZE = 0.5
-SHOULDER_RADIUS = 0.2
-HIP_RADIUS = 0.3
-LIMB_OFFSET = 0.6  # 肩膀/髋部 距离身体中心的偏移量
-
-# --- 材质参数 ---
-BODY_COLOR = (1.0, 0.0, 0.0, 1.0)  # 红色
-HEAD_COLOR = (0.0, 1.0, 0.0, 1.0)  # 绿色
-LIMB_COLOR = (0.0, 0.0, 1.0, 1.0)  # 蓝色
-HAT_COLOR = (1.0, 1.0, 0.0, 1.0)  # 黄色
-BACKPACK_COLOR = (0.5, 0.5, 0.5, 1.0)  # 灰色
 
 def log(message):
     print(f"Log: {message}")
 
-def create_material(name, color):
-    """创建材质"""
-    material = bpy.data.materials.new(name=name)
-    material.use_nodes = True
-    bsdf = material.node_tree.nodes["Principled BSDF"]
-    bsdf.inputs["Base Color"].default_value = color
-    return material
-
-def create_part(part_type, name, radius=1.0, depth=1.0, major_radius=0.4, minor_radius=0.1, size=0.5, location=(0, 0, 0), rotation=(0, 0, 0), segments=32, ring_count=16, material=None, parent=None, **kwargs):
-    """创建部件的通用函数，允许自定义参数"""
-    log(f"Creating {name}")
-    try:
-        if part_type == "Sphere":
-            bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=location, segments=segments, ring_count=ring_count)
-        elif part_type == "Cylinder":
-            bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=depth, enter_editmode=False, align='WORLD', location=location)
-        elif part_type == "Cube":
-            bpy.ops.mesh.primitive_cube_add(size=size, enter_editmode=False, align='WORLD', location=location)
-        elif part_type == "Torus":
-            bpy.ops.mesh.primitive_torus_add(align='WORLD', location=location, rotation=rotation, major_radius=major_radius, minor_radius=minor_radius)
-        else:
-            raise ValueError(f"Unknown part type: {part_type}")
-
-        part = bpy.context.active_object
-        part.name = name
-
-        # 应用材质
-        if material:
-            if part.data.materials:
-                part.data.materials[0] = material
-            else:
-                part.data.materials.append(material)
-
-        # 设置父对象
-        if parent:
-            part.parent = parent
-
-        for key, value in kwargs.items():
-            setattr(part, key, value) # 允许设置其他属性
-        return part
-    except Exception as e:
-        log(f"Error creating {name}: {e}")
-        return None
-
-def create_head(parent, radius=HEAD_RADIUS, location=(0, 0, 0)):
-    head = create_part("Sphere", "Head", radius=radius, location=location, material=head_material, parent=parent)
+def create_head(head_shape="Sphere", radius=1.0, location=(0, 0, 2.0)):
+    log("Creating head")
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, align='WORLD', location=location)
+    head = bpy.context.active_object
+    head.name = "Head"
     return head
 
-def create_neck(parent, radius=NECK_RADIUS, depth=NECK_DEPTH, location=(0, 0, 0)):
-    neck = create_part("Cylinder", "Neck", radius=radius, depth=depth, location=location, material=head_material, parent=parent)
-    return neck
+def create_face(head):
+    face = bpy.data.objects.new("Face", None)
+    bpy.context.collection.objects.link(face)
+    face.parent = head
+    face.matrix_parent_inverse = head.matrix_world.inverted()
+    return face
 
-def create_ear(parent, side, radius=EAR_RADIUS, location=(0, 0, 0)):
-    x_offset = LIMB_OFFSET if side == "Left" else -LIMB_OFFSET
-    ear_location = (x_offset, -HEAD_RADIUS / 2, HEAD_RADIUS / 2)
-    ear = create_part("Sphere", f"Ear_{side}", radius=radius, location=ear_location, material=head_material, parent=parent)
-    return ear
+def create_symmetric_part(part_type, radius, length, location, rotation, name_prefix):
+    log(f"Creating symmetric part: {name_prefix}")
+    if part_type == "arm":
+        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, align='WORLD', location=location, rotation=rotation)
+    elif part_type == "leg":
+        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, align='WORLD', location=location, rotation=rotation)
+    elif part_type == "ear":
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, align='WORLD', location=location)
+    elif part_type == "eye":
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, align='WORLD', location=location)
+    else:
+        log(f"Error: Unknown part type: {part_type}")
+        return None
 
-def create_eye(parent, side, radius=EYE_RADIUS, location=(0, 0, 0)):
-    x_offset = LIMB_OFFSET if side == "Left" else -LIMB_OFFSET
-    eye_location = (x_offset / 2, HEAD_RADIUS / 2, HEAD_RADIUS / 2)
-    eye = create_part("Sphere", f"Eye_{side}", radius=radius, location=eye_location, material=head_material, parent=parent)
-    return eye
+    part = bpy.context.active_object
+    part.name = name_prefix
+    return part
 
-def create_mouth(parent, major_radius=MOUTH_MAJOR_RADIUS, minor_radius=MOUTH_MINOR_RADIUS, location=(0, 0, 0)):
-    mouth_location = (0, -HEAD_RADIUS / 2, 0)
-    mouth = create_part("Torus", "Mouth", major_radius=major_radius, minor_radius=minor_radius, location=mouth_location, material=head_material, parent=parent)
-    return mouth
-
-def create_body(parent, radius=BODY_RADIUS, depth=BODY_DEPTH, location=(0, 0, 0)):
-    body = create_part("Cylinder", "Body", radius=radius, depth=depth, location=location, material=body_material, parent=parent)
-    return body
-
-def create_shoulder(parent, side, radius=SHOULDER_RADIUS, location=(0, 0, 0)):
-    x_offset = LIMB_OFFSET if side == "Left" else -LIMB_OFFSET
-    shoulder_location = (x_offset, 0, BODY_DEPTH / 2)
-    shoulder = create_part("Sphere", f"Shoulder_{side}", radius=radius, location=shoulder_location, material=limb_material, parent=parent)
-    return shoulder
-
-def create_hip(parent, side, radius=HIP_RADIUS, location=(0, 0, 0)):
-    x_offset = LIMB_OFFSET if side == "Left" else -LIMB_OFFSET
-    hip_location = (x_offset, 0, -BODY_DEPTH / 2)
-    hip = create_part("Sphere", f"Hip_{side}", radius=radius, location=hip_location, material=limb_material, parent=parent)
-    return hip
-
-def create_arm(parent, side, radius=ARM_RADIUS, length=ARM_LENGTH, location=(0, 0, 0)):
-    arm_location = (0, 0, -ARM_LENGTH / 2)
-    arm = create_part("Cylinder", f"Arm_{side}", radius=radius, depth=length, location=arm_location, material=limb_material, parent=parent)
+def create_arm(radius=0.1, length=0.7, location=(0.6, 0, -0.0), rotation=(math.radians(90), 0, 0)):
+    log("Creating arm")
+    bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, align='WORLD', location=location, rotation=rotation)
+    arm = bpy.context.active_object
+    arm.name = "Arm"
     return arm
 
-def create_leg(parent, side, radius=LEG_RADIUS, length=LEG_LENGTH, location=(0, 0, 0)):
-    leg_location = (0, 0, -LEG_LENGTH / 2)
-    leg = create_part("Cylinder", f"Leg_{side}", radius=radius, depth=length, location=leg_location, material=limb_material, parent=parent)
+def create_leg(radius=0.2, length=0.8, location=(0.3, 0, -1.3), rotation=(math.radians(90), 0, 0)):
+    log("Creating leg")
+    bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, align='WORLD', location=location, rotation=rotation)
+    leg = bpy.context.active_object
+    leg.name = "Leg"
     return leg
 
-def create_hat(parent, location=(0, 0, 0)):
-    hat_location = (0, 0, HEAD_RADIUS)
-    hat = create_part("Sphere", "Hat", radius=HAT_RADIUS, location=hat_location, segments=32, ring_count=16, material=hat_material, parent=parent)
+def create_body(size=1.0, location=(0, 0, 0.0)):
+    log("Creating body")
+    bpy.ops.mesh.primitive_cube_add(size=size, align='WORLD', location=location)
+    body = bpy.context.active_object
+    body.name = "Body"
+    return body
+
+def create_shoulder(radius=0.15, location=(0.6, 0, 0.0)):
+    log("Creating shoulder")
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, align='WORLD', location=location)
+    shoulder = bpy.context.active_object
+    shoulder.name = "Shoulder"
+    return shoulder
+
+def create_hand(radius=0.1, location=(0.8, 0, 0.0)):
+    log("Creating hand")
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, align='WORLD', location=location)
+    hand = bpy.context.active_object
+    hand.name = "Hand"
+    return hand
+
+def create_foot(radius=0.2, location=(0.3, 0, -2.1)):
+    log("Creating foot")
+    bpy.ops.mesh.primitive_cube_add(size=0.4, align='WORLD', location=location)
+    foot = bpy.context.active_object
+    foot.name = "Foot"
+    return foot
+
+def create_hat(location=(0, 0, 2.7)):
+    log("Creating hat")
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.6, align='WORLD', location=location, segments=32, ring_count=16)
+    hat = bpy.context.active_object
+    hat.name = "Hat"
     return hat
 
-def create_backpack(parent, location=(0, 0, 0)):
-    backpack_location = (-1.2, 0, 0.3)
-    backpack = create_part("Cube", "Backpack", size=BACKPACK_SIZE, location=backpack_location, material=backpack_material, parent=parent)
+def create_backpack(location=(-0.6, -0.3, 0.2)):
+    log("Creating backpack")
+    bpy.ops.mesh.primitive_cube_add(size=0.5, align='WORLD', location=location)
+    backpack = bpy.context.active_object
+    backpack.name = "Backpack"
     return backpack
 
-def check_mechanics(character):
-    log("Checking mechanics")
-    if character is None:
-        log("Error: Character object is None.")
-        return False
+def create_mouth(major_radius=0.4, minor_radius=0.1, location=(0, -0.4, 1.2)):
+    log("Creating mouth")
+    bpy.ops.mesh.primitive_torus_add(
+        align='WORLD',
+        location=location,
+        rotation=(0, 0, 0),
+        major_radius=major_radius,
+        minor_radius=minor_radius
+    )
+    mouth = bpy.context.active_object
+    mouth.name = "Mouth"
+    return mouth
 
-    # 获取身体和腿部对象
-    body = bpy.data.objects.get("Body")
-    left_leg = bpy.data.objects.get("Leg_Left")
-    right_leg = bpy.data.objects.get("Leg_Right")
+def calculate_center_of_mass(objects):
+    total_mass = 0
+    weighted_sum = [0, 0, 0]
+    for obj in objects:
+        volume = obj.data.volume if obj.type == 'MESH' and obj.data else 1
+        total_mass += volume
+        weighted_sum[0] += obj.location.x * volume
+        weighted_sum[1] += obj.location.y * volume
+        weighted_sum[2] += obj.location.z * volume
 
-    if not all([body, left_leg, right_leg]):
-        log("Warning: Body or legs are missing, cannot perform mechanics check.")
-        return False
-
-    # 粗略的重心检查 (简化版)
-    body_z = body.location.z
-    leg_z = (left_leg.location.z + right_leg.location.z) / 2
-    if body_z > leg_z:
-        log("Warning: Body is positioned higher than legs, potentially unstable.")
+    if total_mass > 0:
+        center_of_mass = [coord / total_mass for coord in weighted_sum]
+        return center_of_mass
     else:
-        log("重心位置基本合理")
+        return [0, 0, 0]
 
-    log("Mechanics check passed (basic).")
-    return True
+def check_mechanics(obj):
+    log(f"Checking mechanics for {obj.name}")
+    if obj.type == 'MESH' and obj.data:
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        isolated_verts = [v for v in bm.verts if len(v.link_edges) == 0]
+        if isolated_verts:
+            log(f"Warning: {obj.name} has {len(isolated_verts)} isolated vertices.")
+        bm.free()
+    else:
+        log(f"Warning: {obj.name} has no valid mesh data.")
 
-def mesh_intersect(obj1, obj2):
-    """使用 bmesh 检查两个网格是否相交."""
-    if obj1.type != 'MESH' or obj2.type != 'MESH':
-        return False
+def check_physics(obj):
+    log(f"Checking physics for {obj.name}")
+    if obj.type == 'MESH' and obj.data:
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        bm.verts.ensure_lookup_table()
+        bm.edges.ensure_lookup_table()
+        bm.faces.ensure_lookup_table()
 
-    # 创建 bmesh 对象
-    bm1 = bmesh.new()
-    bm2 = bmesh.new()
-    bm1.from_mesh(obj1.data)
-    bm2.from_mesh(obj2.data)
+        for face in bm.faces:
+            for other_face in bm.faces:
+                if face != other_face:
+                    if face.calc_center().distance(other_face.calc_center()) < 0.01:
+                        log(f"Warning: {obj.name} has faces that are very close to each other (potential self-intersection).")
+                        break
+        bm.free()
+    else:
+        log(f"Warning: {obj.name} has no valid mesh data.")
 
-    # 应用世界矩阵
-    bm1.transform(obj1.matrix_world)
-    bm2.transform(obj2.matrix_world)
+def check_appearance(obj):
+    log(f"Checking appearance for {obj.name}")
+    if obj.type == 'MESH' and obj.data.materials:
+        pass
+    else:
+        log(f"Warning: {obj.name} has no material assigned.")
 
-    # 创建 BVH 树
-    bvh1 = mathutils.bvhtree.BVHTree.FromBMesh(bm1)
-    bvh2 = mathutils.bvhtree.BVHTree.FromBMesh(bm2)
+def check_structure(obj):
+    log(f"Checking structure for {obj.name}")
+    if obj.type == 'MESH' and obj.data:
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        non_manifold_edges = [e for e in bm.edges if e.is_manifold == False]
+        if non_manifold_edges:
+            log(f"Warning: {obj.name} has {len(non_manifold_edges)} non-manifold edges.")
+        bm.free()
+    else:
+        log(f"Warning: {obj.name} has no valid mesh data.")
 
-    # 检查相交
-    intersect = bvh1.overlap(bvh2)
+def main(body_size=1.0, head_radius=0.5, arm_length=0.7, leg_length=0.8):
+    character_name = "CartoonCharacter"
 
-    bm1.free()
-    bm2.free()
+    body = create_body(size=body_size)
+    head = create_head(radius=head_radius, location=(0, 0, body_size + head_radius))
 
-    return len(intersect) > 0
+    face = create_face(head)
 
-def check_physics(character):
-    log("Checking physics")
-    # 检查网格是否相交 (使用 bmesh)
-    for obj1 in character.children:
-        for obj2 in character.children:
-            if obj1 != obj2:
-                if obj1.type == 'MESH' and obj2.type == 'MESH':
-                    if mesh_intersect(obj1, obj2):
-                        log(f"Warning: {obj1.name} and {obj2.name} 相交.")
+    ear_left = create_symmetric_part("ear", 0.2, 0, (0.7, 0, 0.7), (0, 0, 0), "Ear_Left")
+    ear_right = create_symmetric_part("ear", 0.2, 0, (-0.7, 0, 0.7), (0, 0, 0), "Ear_Right")
+    eye_left = create_symmetric_part("eye", 0.15, 0, (0.4, 0.6, 0.3), (0, 0, 0), "Eye_Left")
+    eye_right = create_symmetric_part("eye", 0.15, 0, (-0.4, 0.6, 0.3), (0, 0, 0), "Eye_Right")
+    mouth = create_mouth(location=(0, -0.4, 0.1))
 
-    log("Physics check passed (bmesh).")
-    return True
+    if ear_left:
+        ear_left.parent = face
+        ear_left.matrix_parent_inverse = face.matrix_world.inverted()
+    if ear_right:
+        ear_right.parent = face
+        ear_right.matrix_parent_inverse = face.matrix_world.inverted()
+    if eye_left:
+        eye_left.parent = face
+        eye_left.matrix_parent_inverse = face.matrix_world.inverted()
+    if eye_right:
+        eye_right.parent = face
+        eye_right.matrix_parent_inverse = face.matrix_world.inverted()
+    mouth.parent = face
+    mouth.matrix_parent_inverse = face.matrix_world.inverted()
 
-def check_appearance(character):
-    log("Checking appearance")
-    # 检查是否有材质
-    for obj in character.children:
-        if obj.data and hasattr(obj.data, 'materials'):
-            if not obj.data.materials:
-                log(f"Warning: {obj.name} 没有材质.")
-        else:
-            log(f"Warning: {obj.name} 没有材质数据.")
-    log("Appearance check passed (basic).")
-    return True
+    shoulder_left = create_shoulder(location=(body_size/2 + 0.05, 0, body_size/2))
+    shoulder_right = create_shoulder(location=(-body_size/2 - 0.05, 0, body_size/2))
 
-def check_structure(character):
-    log("Checking structure")
-    expected_parts = ["Head", "Neck", "Body", "Ear_Left", "Ear_Right", "Eye_Left", "Eye_Right", "Mouth", "Arm_Left", "Arm_Right", "Leg_Left", "Leg_Right", "Hat", "Backpack", "Shoulder_Left", "Shoulder_Right", "Hip_Left", "Hip_Right"]
-    for part_name in expected_parts:
-        part = bpy.data.objects.get(part_name)
-        if part is None:
-            log(f"Warning: Part {part_name} is missing.")
-            return False
-        if part.parent != character and part.parent != bpy.data.objects.get("Body") and part.parent != bpy.data.objects.get("Head"):
-            log(f"Warning: Part {part_name} is not parented to the character, body, or head.")
-            return False
-    log("Structure check passed.")
-    return True
+    arm_left = create_arm(length=arm_length, location=(body_size/2 + 0.15 + arm_length/2, 0, body_size/2), rotation=(math.radians(90), 0, 0))
+    arm_right = create_arm(length=arm_length, location=(-body_size/2 - 0.15 - arm_length/2, 0, body_size/2), rotation=(math.radians(90), 0, 0))
 
-def main():
-    import mathutils
+    hand_left = create_hand(location=(body_size/2 + 0.15 + arm_length + 0.1, 0, body_size/2))
+    hand_right = create_hand(location=(-body_size/2 - 0.15 - arm_length - 0.1, 0, body_size/2))
 
-    character_name = CHARACTER_NAME
+    leg_left = create_leg(length=leg_length, location=(body_size/4, 0, -leg_length/2), rotation=(math.radians(90), 0, 0))
+    leg_right = create_leg(length=leg_length, location=(-body_size/4, 0, -leg_length/2), rotation=(math.radians(90), 0, 0))
 
-    log("Starting character creation")
+    foot_left = create_foot(location=(body_size/4, 0, -leg_length - 0.2))
+    foot_right = create_foot(location=(-body_size/4, 0, -leg_length - 0.2))
 
-    # 创建材质
-    global body_material, head_material, limb_material, hat_material, backpack_material
-    body_material = create_material("BodyMaterial", BODY_COLOR)
-    head_material = create_material("HeadMaterial", HEAD_COLOR)
-    limb_material = create_material("LimbMaterial", LIMB_COLOR)
-    hat_material = create_material("HatMaterial", HAT_COLOR)
-    backpack_material = create_material("BackpackMaterial", BACKPACK_COLOR)
+    hat = create_hat(location=(0, 0, body_size + head_radius + 0.2))
+    backpack = create_backpack(location=(-body_size/2 - 0.1, -body_size/4, body_size/4))
 
-    # Create parent object
-    character = bpy.data.objects.new(character_name, None)
-    bpy.context.collection.objects.link(character)
+    hat.parent = head
+    hat.matrix_parent_inverse = head.matrix_world.inverted()
 
-    # Create body
-    body = create_body(character)
+    backpack.parent = body
+    backpack.matrix_parent_inverse = body.matrix_world.inverted()
 
-    # Create neck and head
-    neck = create_neck(body, location=(0, 0, BODY_DEPTH / 2))
-    head = create_head(neck, location=(0, 0, NECK_DEPTH / 2 + HEAD_RADIUS / 2))
+    head.parent = body
+    head.matrix_parent_inverse = body.matrix_world.inverted()
 
-    # Create ears and eyes
-    for side in ["Left", "Right"]:
-        ear = create_ear(head, side)
-        eye = create_eye(head, side)
+    shoulder_left.parent = body
+    shoulder_left.matrix_parent_inverse = body.matrix_world.inverted()
+    shoulder_right.parent = body
+    shoulder_right.matrix_parent_inverse = body.matrix_world.inverted()
 
-    # Create shoulders and arms
-    for side in ["Left", "Right"]:
-        shoulder = create_shoulder(body, side)
-        arm = create_arm(shoulder, side)
+    arm_left.parent = shoulder_left
+    arm_left.matrix_parent_inverse = shoulder_left.matrix_world.inverted()
+    arm_right.parent = shoulder_right
+    arm_right.matrix_parent_inverse = shoulder_right.matrix_world.inverted()
 
-    # Create hips and legs
-    for side in ["Left", "Right"]:
-        hip = create_hip(body, side)
-        leg = create_leg(hip, side)
+    hand_left.parent = arm_left
+    hand_left.matrix_parent_inverse = arm_left.matrix_world.inverted()
+    hand_right.parent = arm_right
+    hand_right.matrix_parent_inverse = arm_right.matrix_world.inverted()
 
-    # Create mouth, hat, and backpack
-    mouth = create_mouth(head)
-    hat = create_hat(head)
-    backpack = create_backpack(character)
+    leg_left.parent = body
+    leg_left.matrix_parent_inverse = body.matrix_world.inverted()
+    leg_right.parent = body
+    leg_right.matrix_parent_inverse = body.matrix_world.inverted()
 
-    # Select all objects to join
+    foot_left.parent = leg_left
+    foot_left.matrix_parent_inverse = leg_left.matrix_world.inverted()
+    foot_right.parent = leg_right
+    foot_right.matrix_parent_inverse = leg_right.matrix_world.inverted()
+
+    objects_for_com = [body, head, ear_left, ear_right, eye_left, eye_right, mouth, arm_left, arm_right, leg_left, leg_right, hat, backpack, shoulder_left, shoulder_right, hand_left, hand_right, foot_left, foot_right]
+    center_of_mass = calculate_center_of_mass(objects_for_com)
+    log(f"Center of mass: {center_of_mass}")
+
     bpy.ops.object.select_all(action='DESELECT')
-    character.select_set(True)
-    bpy.context.view_layer.objects.active = character
+    objects_to_join = [obj for obj in objects_for_com if obj is not None]
 
-    # Run checks
-    check_mechanics(character)
-    check_physics(character)
-    check_appearance(character)
-    check_structure(character)
+    for obj in objects_to_join:
+        obj.select_set(True)
 
-    log("Character creation complete")
+    bpy.context.view_layer.objects.active = body
+    bpy.ops.object.join()
+    body.name = character_name
 
-bpy.app.timers.register(main)
+    check_mechanics(body)
+    check_physics(body)
+    check_appearance(body)
+    check_structure(body)
+
+    log("Finished creating character")
+
+bpy.app.timers.register(lambda: main(body_size=1.2, head_radius=0.6, arm_length=0.8, leg_length=0.9))

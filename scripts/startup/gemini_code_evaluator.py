@@ -80,17 +80,53 @@ EVALUATION_PROMPT_TEMPLATE = """
 
 # 定义修复提示模板
 FIX_PROMPT_TEMPLATE = """
-我按照您的建议修复了代码，但仍然存在一些问题。以下是错误信息:
+我按照您的建议修复了代码，但仍然存在一些问题。以下是错误信息：
 
 {error_message}
 
 请帮我进一步修复代码，确保它能够正常运行，并且满足系统论、控制论、信息论的原则，以及链接和力学正常。
 
-当前代码:
+当前代码：
 ```python
 {code}
 ```
+    -当前环境是Blender 4.5 ,不要调用Blender 4.1 以前的api;
+    -Blender 4.5 API : https://docs.blender.org/api/current/
+    -生成代码时查询上面的地址，确认API的可用性和参数是否正确;
+    请避免以下Blender脚本开发中的常见错误：
 
+    1. 不要使用 if __name__ == "__main__" 结构：
+        - 在Blender的脚本编辑器中，__name__ 永远不是 "__main__"，所以这样的代码不会执行
+        - 正确做法：使用 bpy.app.timers.register(main) 确保函数执行
+
+    2. 确保bpy.ops操作有正确的上下文：
+        - 很多 bpy.ops.mesh.primitive_xxx_add 函数只能在合适的上下文中执行
+        - 不要使用不存在的参数（如clip_end=False）
+        - 在执行操作前，确保处于正确的模式（如使用 bpy.ops.object.mode_set(mode='EDIT')）
+        - 操作完成后，记得退出当前模式
+
+    3. 合并对象前正确选择对象：
+        - 使用 bpy.ops.object.join() 前，先取消所有选择 bpy.ops.object.select_all(action='DESELECT')
+        - 手动选择目标对象 obj.select_set(True)
+        - 设置活动对象 bpy.context.view_layer.objects.active = obj
+        - 然后执行合并
+
+    4. **新增: `primitive_torus_add` 参数规则:**
+    -不要使用enter_editmode字段
+    - 正确方式是bpy.ops.mesh.primitive_torus_add(
+            align='WORLD',
+            location=(0, 0, 0.7),
+            rotation=(0, 0, 0),
+            major_radius=0.4,
+            minor_radius=0.1
+        )
+    - **绝对禁止**bpy.ops.mesh.primitive_torus_add(radius=0.4, major_radius=0.6, enter_editmode=False, align='WORLD', location=(0, 0, 1.2))
+
+    5.  **bmesh 工作流**: 正确使用 bmesh.new(), bm.from_mesh(), bm.to_mesh(), mesh.update(), 和 **极其重要** 的 bm.free() 来避免内存泄漏。在编辑模式下使用 from_edit_mesh/update_edit_mesh。
+        -避免报错：'Mesh' object has no attribute 'is_valid'
+
+
+    只返回Python代码，不要包含任何解释或注释。确保代码可以直接在Blender中执行，生成完整的3D模型。
 请提供完整的修复后代码。
 """
 
@@ -312,7 +348,7 @@ def test_execute_code(code):
         return False, error_msg + "\n" + traceback.format_exc()
 
 
-def evaluate_and_fix_code(max_iterations=100):
+def evaluate_and_fix_code(max_iterations=5):
     """评估并修复gemini_latest_code.py文件中的代码"""
     script_path = get_script_path()
     script_dir = os.path.dirname(script_path)
@@ -538,8 +574,10 @@ class SCRIPT_OT_evaluate_fix_gemini_code(bpy.types.Operator):
         # 检查脚本文件是否存在
         return os.path.exists(get_script_path())
 
-    # 定义类变量来存储最大迭代次数
-    max_iterations = 100
+    # 允许通过属性设置最大迭代次数
+    max_iterations: bpy.props.IntProperty(
+        name="反思次数", description="Gemini反思/评估最大次数", default=5, min=1, max=20
+    )
 
     def execute(self, context):
         print("\n[Gemini评估与修复] 执行评估并修复脚本操作", flush=True)
@@ -555,6 +593,38 @@ class SCRIPT_OT_evaluate_fix_gemini_code(bpy.types.Operator):
             # 强制刷新所有面板，显示开始评估的消息
             for area in context.screen.areas:
                 area.tag_redraw()
+
+        # 新功能：如果用户在输入框中提供新的要求，则先调整脚本
+        if hasattr(context.scene, "ai_assistant"):
+            ai_props = context.scene.ai_assistant
+            user_req = ai_props.message.strip()
+            print(f"[Gemini预处理] 读取到用户要求: {user_req}", flush=True)
+            if user_req:
+                ai_props.message = ""
+                script_path = get_script_path()
+                try:
+                    with open(script_path, 'r', encoding='utf-8') as f:
+                        current_code = f.read()
+                    prompt = f"请根据以下要求修改现有脚本：\n{user_req}\n\n现有脚本内容：\n{current_code}"
+                    gen_success, gen_result = ai_gemini_integration.generate_blender_code(prompt)
+                    if gen_success:
+                        with open(script_path, 'w', encoding='utf-8') as f:
+                            f.write(gen_result)
+                        upd_msg = ai_props.messages.add()
+                        upd_msg.text = f"🔄 根据用户要求修改脚本：{user_req}"
+                        upd_msg.is_user = False
+                        ai_props.active_message_index = len(ai_props.messages) - 1
+                    else:
+                        error_text = gen_result if isinstance(gen_result, str) else str(gen_result)
+                        err_msg = ai_props.messages.add()
+                        err_msg.text = f"❌ 修改脚本失败：{error_text}"
+                        err_msg.is_user = False
+                        return {'CANCELLED'}
+                except Exception as e:
+                    err_msg = ai_props.messages.add()
+                    err_msg.text = f"❌ 修改脚本时出错：{e}"
+                    err_msg.is_user = False
+                    return {'CANCELLED'}
 
         # 执行评估并修复脚本操作
         success, message = evaluate_and_fix_code(max_iterations=self.max_iterations)

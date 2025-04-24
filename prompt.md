@@ -4,13 +4,22 @@
 
 make -j16 && /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Contents/MacOS/Blender
 
+make lite -j16 &&/Users/yixin0909zhang/blender-git/build_darwin_lite/bin/Blender.app/Contents/MacOS/Blender
 
 /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Contents/MacOS/Blender
 
 用户一进入blender后，场景有默认的cube ，给我删掉；
 
 
-请求次数达到5次就执行一次 agent 执行 ，可视化一下，
+agent 评估反思
+
+
+agent 评估反思 旁边加一个按钮，反思次数，默认是5次，用户可以修改；
+Gemini 请求次数限制已从100调整为5，或用户自定义值。
+- 在“Agent 评估反思”按钮旁边新增了“反思次数”输入框，允许用户动态修改反思/请求次数，默认值为5。
+gemini 请求次数达到5次或者 用户设定次数，就停止；现在好像是100次；只需要把100变成5就行
+
+反思的过程中，允许用户继续在输入框里输入新的要求，发送给genimi之前，会读取这个需求，对上一次生成的模型的脚本进行修改
 
 
 
