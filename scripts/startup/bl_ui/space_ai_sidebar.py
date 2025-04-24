@@ -80,7 +80,12 @@ class AIMessageItem(PropertyGroup):
 
 
 class AIAssistantProperties(PropertyGroup):
-    message: StringProperty(default="")
+    message: StringProperty(
+        name="输入文本",
+        description="输入提示或命令",
+        default="",
+        maxlen=4096,  # 增加最大长度限制
+    )
     messages: CollectionProperty(type=AIMessageItem)
     active_message_index: IntProperty(default=-1)
     keep_open: BoolProperty(default=True)
@@ -154,12 +159,22 @@ class VIEW3D_PT_ai_assistant(Panel):
         else:
             history_box.label(text="暂无消息。")
 
-        # 3. 用户需求输入文本区
+        # 3. 用户需求输入文本区 - 大型输入框
         input_box = layout.box()
         input_box.label(text="输入提示:", icon='CONSOLE')
-        row_input = input_box.row()
+
+        # 使用column而不是row，以便于垂直扩展
+        input_col = input_box.column()
+
+        # 设置占位符文本
         placeholder = CONFIG.get("default_prompts", {}).get("placeholder_short", "描述你想创建的模型...")
-        row_input.prop(ai_props, "message", text="", placeholder=placeholder)
+
+        # 创建一个更高更宽的输入框
+        # 使用column而不是row，确保输入框占据整个宽度
+        big_input_col = input_col.column()
+        big_input_col.scale_y = 6.0  # 显著增加输入框高度
+        # 不需要设置scale_x，因为column会自动占据整个宽度
+        big_input_col.prop(ai_props, "message", text="", placeholder=placeholder)
 
         # 4. 按钮区 - Agent 工作流程
         button_row = layout.row(align=True)
@@ -510,7 +525,7 @@ def force_panel_open_handler(dummy):
                         if region.type == 'UI':
                             # 确保区域可见
                             if region.alignment == 'RIGHT':
-                                region.width = max(region.width, 300)  # 确保面板有足够的宽度
+                                region.width = max(region.width, 800)  # 将面板宽度设置为更大的值
                             region.tag_redraw()
 
                     # 强制刷新区域

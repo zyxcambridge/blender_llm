@@ -7,13 +7,31 @@ make -j16 && /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Cont
 
 /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Contents/MacOS/Blender
 
+用户一进入blender后，场景有默认的cube ，给我删掉；
+
+
+请求次数达到5次就执行一次 agent 执行 ，可视化一下，
+
+
+
+把历史记录保存起来，每次的修改diff，一起送给gemini，保证gemini最后生成完整的模型
+
+
+扩展功能：现在生成默认输入框里的人物，比较好，但是，用户自己输入新的要求，鼻炎洗鼻器后，3d建模就只有一个立方体；
+说明 prompt 写成专门对应人物的了；扩写所有相关的prompt，适应更多类型的需求；
+
+
 
 发送给AI 变成 agent 建模规划
 修复脚本错误 变成 agent 评估反思
 执行脚本(类似Alt+P) agent 执行
 
 
-修改代码的逻辑是，每次把代码请求 genimi ，genimi告诉你错误，你再针对性的修改，直到genimi 不再报错，然后执行脚本。
+修改fix_gemini_script 代码的方法是，每次把代码请求 genimi ，
+gemini 要检查，现在的各个组件，是否满足系统论，控制论，信息论，链接是否正常，
+力学是否满足，
+如果有错误，就告诉 genimi 错误信息，
+genimi告诉你错误，你再针对性的修改，直到genimi 不再报错，然后执行脚本。
 
 
 

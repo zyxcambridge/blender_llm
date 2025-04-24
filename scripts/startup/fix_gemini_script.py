@@ -441,6 +441,16 @@ def fix_script():
         return False, error_msg
 
 
+# 导入Gemini评估与修复模块
+try:
+    import gemini_code_evaluator
+
+    has_evaluator = True
+except ImportError:
+    has_evaluator = False
+    print("警告: 无法导入gemini_code_evaluator模块，评估功能将不可用", flush=True)
+
+
 # 定义Blender操作符类
 class SCRIPT_OT_fix_gemini_code(bpy.types.Operator):
     bl_idname = "script.fix_gemini_code"
@@ -468,8 +478,22 @@ class SCRIPT_OT_fix_gemini_code(bpy.types.Operator):
             for area in context.screen.areas:
                 area.tag_redraw()
 
-        # 执行修复脚本操作
-        success, message = fix_script()
+        # 如果有评估模块，优先使用评估功能
+        if has_evaluator:
+            print("[脚本修复] 使用Gemini评估与修复功能", flush=True)
+            try:
+                # 执行评估并修复脚本操作
+                success, message = gemini_code_evaluator.evaluate_and_fix_code()
+            except Exception as e:
+                print(f"[脚本修复] 调用Gemini评估与修复功能时出错: {e}", flush=True)
+                print(traceback.format_exc(), flush=True)
+                # 如果调用评估功能出错，回退到基本修复功能
+                print("[脚本修复] 回退到基本修复功能", flush=True)
+                success, message = fix_script()
+        else:
+            print("[脚本修复] 使用基本修复功能", flush=True)
+            # 执行基本修复脚本操作
+            success, message = fix_script()
 
         if success:
             self.report({'INFO'}, message.split('\n')[0])  # 只报告第一行，避免消息过长
@@ -478,7 +502,7 @@ class SCRIPT_OT_fix_gemini_code(bpy.types.Operator):
             if hasattr(context.scene, "ai_assistant"):
                 ai_props = context.scene.ai_assistant
                 msg = ai_props.messages.add()
-                if "未发现" in message:
+                if "未发现" in message or "无需修改" in message:
                     msg.text = f"ℹ️ {message}"
                 else:
                     msg.text = f"✅ {message}"
@@ -518,13 +542,21 @@ class SCRIPT_OT_fix_gemini_code(bpy.types.Operator):
 
 # 注册和注销函数
 def register():
+    # 注册基本修复操作符
     bpy.utils.register_class(SCRIPT_OT_fix_gemini_code)
-    print("[脚本修复] 已注册修复Gemini脚本操作符")
+    print("[脚本修复] 已注册修复Gemini脚本操作符", flush=True)
+
+    # 注意: 不再在这里注册 gemini_code_evaluator 模块
+    # 因为它会在自己的模块中注册
 
 
 def unregister():
+    # 注销基本修复操作符
     bpy.utils.unregister_class(SCRIPT_OT_fix_gemini_code)
-    print("[脚本修复] 已注销修复Gemini脚本操作符")
+    print("[脚本修复] 已注销修复Gemini脚本操作符", flush=True)
+
+    # 注意: 不再在这里注销 gemini_code_evaluator 模块
+    # 因为它会在自己的模块中注销
 
 
 if __name__ == "__main__":
