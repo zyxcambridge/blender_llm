@@ -4,6 +4,7 @@
 
 make -j16 && /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Contents/MacOS/Blender
 
+make lite -j16 &&/Users/yixin0909zhang/blender-git/build_darwin_lite/bin/Blender.app/Contents/MacOS/Blender
 
 /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Contents/MacOS/Blender
 

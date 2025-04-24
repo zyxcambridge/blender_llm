@@ -7,182 +7,177 @@ def log(message):
 
 def create_head(head_shape="Sphere", radius=1.0):
     log("Creating head")
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=(0, 0, 0))
-    head = bpy.context.active_object
+    if head_shape == "Sphere":
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=(0, 0, 0))
+        head = bpy.context.object
+    else:
+        log("Invalid head shape. Creating sphere as default.")
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=(0, 0, 0))
+        head = bpy.context.object
     head.name = "Head"
     return head
 
-def create_ear(ear_shape="Sphere", radius=0.2):
+def create_ear(ear_shape="Sphere", radius=0.2, offset=0.7):
     log("Creating ear")
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=(0.7, 0, 1.2))
-    ear = bpy.context.active_object
+    if ear_shape == "Sphere":
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=(offset, 0, 1.2))
+        ear = bpy.context.object
+    else:
+        log("Invalid ear shape. Creating sphere as default.")
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=(offset, 0, 1.2))
+        ear = bpy.context.object
     ear.name = "Ear"
     return ear
 
-def create_eye(eye_shape="Sphere", radius=0.15):
+def create_eye(eye_shape="Sphere", radius=0.15, offset=0.4):
     log("Creating eye")
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=(0.4, 0.5, 0.8))
-    eye = bpy.context.active_object
+    if eye_shape == "Sphere":
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=(offset, 0.5, 0.5))
+        eye = bpy.context.object
+    else:
+        log("Invalid eye shape. Creating sphere as default.")
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, enter_editmode=False, align='WORLD', location=(offset, 0.5, 0.5))
+        eye = bpy.context.object
     eye.name = "Eye"
     return eye
 
 def create_mouth(mouth_shape="Torus", major_radius=0.4, minor_radius=0.1):
     log("Creating mouth")
-    bpy.ops.mesh.primitive_torus_add(
-        align='WORLD',
-        location=(0, -0.6, 0.7),
-        rotation=(0, 0, 0),
-        major_radius=major_radius,
-        minor_radius=minor_radius
-    )
-    mouth = bpy.context.active_object
+    if mouth_shape == "Torus":
+        bpy.ops.mesh.primitive_torus_add(align='WORLD', location=(0, -0.7, 0), rotation=(0, 0, 0), major_radius=major_radius, minor_radius=minor_radius)
+        mouth = bpy.context.object
+    else:
+        log("Invalid mouth shape. Creating torus as default.")
+        bpy.ops.mesh.primitive_torus_add(align='WORLD', location=(0, -0.7, 0), rotation=(0, 0, 0), major_radius=major_radius, minor_radius=minor_radius)
+        mouth = bpy.context.object
     mouth.name = "Mouth"
     return mouth
 
-def create_arm(arm_shape="Cylinder", radius=0.1, length=1.0):
+def create_arm(arm_shape="Cylinder", length=1.0, radius=0.1, offset=1.2):
     log("Creating arm")
-    bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, enter_editmode=False, align='WORLD', location=(1.2, 0, 0))
-    arm = bpy.context.active_object
+    if arm_shape == "Cylinder":
+        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, enter_editmode=False, align='WORLD', location=(offset, 0, 0))
+        arm = bpy.context.object
+    else:
+        log("Invalid arm shape. Creating cylinder as default.")
+        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, enter_editmode=False, align='WORLD', location=(offset, 0, 0))
+        arm = bpy.context.object
     arm.name = "Arm"
     return arm
 
-def create_leg(leg_shape="Cylinder", radius=0.2, length=1.2):
+def create_leg(leg_shape="Cylinder", length=1.5, radius=0.2, offset=0.4):
     log("Creating leg")
-    bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, enter_editmode=False, align='WORLD', location=(0, 0, -1.2))
-    leg = bpy.context.active_object
+    if leg_shape == "Cylinder":
+        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, enter_editmode=False, align='WORLD', location=(offset, 0, -1.5))
+        leg = bpy.context.object
+    else:
+        log("Invalid leg shape. Creating cylinder as default.")
+        bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=length, enter_editmode=False, align='WORLD', location=(offset, 0, -1.5))
+        leg = bpy.context.object
     leg.name = "Leg"
     return leg
 
 def create_hat():
     log("Creating hat")
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.6, enter_editmode=False, align='WORLD', location=(0, 0, 1.7), segments=32, ring_count=16)
-    hat = bpy.context.active_object
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.6, enter_editmode=False, align='WORLD', location=(0, 0, 1.7))
+    hat = bpy.context.object
     hat.name = "Hat"
+
+    bpy.ops.object.mode_set(mode='EDIT')
+    bm = bmesh.new()
+    bm.from_mesh(hat.data)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < 1.7], context='VERTS')
+    bm.to_mesh(hat.data)
+    bm.free()
+    bpy.ops.object.mode_set(mode='OBJECT')
+
     return hat
 
 def create_backpack():
     log("Creating backpack")
-    bpy.ops.mesh.primitive_cube_add(size=0.5, enter_editmode=False, align='WORLD', location=(-1.2, 0, 0.3))
-    backpack = bpy.context.active_object
+    bpy.ops.mesh.primitive_cube_add(size=0.7, enter_editmode=False, align='WORLD', location=(1.5, -0.2, 0))
+    backpack = bpy.context.object
+    backpack.scale = (0.5, 0.8, 1.2)
     backpack.name = "Backpack"
     return backpack
+
+def join_objects(objects, character_name):
+    log("Joining objects")
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in objects:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = objects[0]
+    bpy.ops.object.join()
+    bpy.context.object.name = character_name
+    log(f"Joined objects and named character: {character_name}")
 
 def check_mechanics(character):
     log("Checking mechanics")
     # Basic check: is the character object present?
     if character is None:
-        log("Error: Character object is None.")
+        log("Error: Character object is None. Mechanics check failed.")
         return False
 
-    # More sophisticated checks would go here, e.g.,
-    # - Check if the center of mass is within the support polygon
-    # - Check for obvious structural weaknesses
-
-    log("Mechanics check passed (basic).")
+    # More sophisticated checks would go here, e.g., center of mass, stability.
+    log("Basic mechanics check passed.")
     return True
 
 def check_physics(character):
     log("Checking physics")
-    # Basic check: are there any intersecting meshes?
-    # (This is a very basic check; more sophisticated checks would be needed for real physics simulation)
+    # Basic check: is the character object present?
+    if character is None:
+        log("Error: Character object is None. Physics check failed.")
+        return False
 
-    # More sophisticated checks would go here, e.g.,
-    # - Check for fluid flow paths if the character is supposed to interact with fluids
-    # - Check for airtightness if the character is supposed to be sealed
-
-    log("Physics check passed (basic).")
+    # More sophisticated checks would go here, e.g., collision detection, fluid flow.
+    log("Basic physics check passed.")
     return True
 
 def check_appearance(character):
     log("Checking appearance")
-    # Basic check: does the character have any materials assigned?
+    # Basic check: is the character object present?
+    if character is None:
+        log("Error: Character object is None. Appearance check failed.")
+        return False
 
-    # More sophisticated checks would go here, e.g.,
-    # - Check for color harmony
-    # - Check for consistent level of detail
-
-    log("Appearance check passed (basic).")
+    # More sophisticated checks would go here, e.g., proportions, color harmony.
+    log("Basic appearance check passed.")
     return True
 
 def check_structure(character):
     log("Checking structure")
-    # Basic check: are all the expected parts present?
-    if not all(part in character.children for part in [bpy.data.objects.get("Head"), bpy.data.objects.get("Ear"), bpy.data.objects.get("Eye"), bpy.data.objects.get("Mouth"), bpy.data.objects.get("Arm"), bpy.data.objects.get("Leg")] if part is not None):
-        log("Warning: Not all expected parts are present.")
+    # Basic check: is the character object present?
+    if character is None:
+        log("Error: Character object is None. Structure check failed.")
+        return False
 
-    # More sophisticated checks would go here, e.g.,
-    # - Check for correct parent-child relationships
-    # - Check for correct placement of functional components
-
-    log("Structure check passed (basic).")
+    # More sophisticated checks would go here, e.g., connectivity, support.
+    log("Basic structure check passed.")
     return True
 
 def main():
     character_name = "CartoonCharacter"
-
-    log("Starting character creation")
-
-    head = create_head()
-    ear_left = create_ear()
-    ear_left.location.x = 0.7
-    ear_left.location.y = -0.5
-    ear_right = create_ear()
-    ear_right.location.x = -0.7
-    ear_right.location.y = -0.5
-    eye_left = create_eye()
-    eye_left.location.x = 0.4
-    eye_left.location.y = 0.5
-    eye_right = create_eye()
-    eye_right.location.x = -0.4
-    eye_right.location.y = 0.5
-    mouth = create_mouth()
-    arm_left = create_arm()
-    arm_left.location.x = 1.2
-    arm_left.location.y = 0
-    arm_right = create_arm()
-    arm_right.location.x = -1.2
-    arm_right.location.y = 0
-    leg_left = create_leg()
-    leg_left.location.x = 0.5
-    leg_left.location.y = 0
-    leg_right = create_leg()
-    leg_right.location.x = -0.5
-    leg_right.location.y = 0
+    head = create_head(head_shape="Sphere")
+    ear_left = create_ear(ear_shape="Sphere", offset=0.7)
+    ear_right = create_ear(ear_shape="Sphere", offset=-0.7)
+    eye_left = create_eye(eye_shape="Sphere", offset=0.4)
+    eye_right = create_eye(eye_shape="Sphere", offset=-0.4)
+    mouth = create_mouth(mouth_shape="Torus")
+    arm_left = create_arm(arm_shape="Cylinder", offset=1.2)
+    arm_right = create_arm(arm_shape="Cylinder", offset=-1.2)
+    leg_left = create_leg(leg_shape="Cylinder", offset=0.4)
+    leg_right = create_leg(leg_shape="Cylinder", offset=-0.4)
     hat = create_hat()
     backpack = create_backpack()
 
-    # Create parent object
-    character = bpy.data.objects.new(character_name, None)
-    bpy.context.collection.objects.link(character)
+    objects_to_join = [head, ear_left, ear_right, eye_left, eye_right, mouth, arm_left, arm_right, leg_left, leg_right, hat, backpack]
+    join_objects(objects_to_join, character_name)
 
-    # Parent all objects to the character object
-    head.parent = character
-    ear_left.parent = character
-    ear_right.parent = character
-    eye_left.parent = character
-    eye_right.parent = character
-    mouth.parent = character
-    arm_left.parent = character
-    arm_right.parent = character
-    leg_left.parent = character
-    leg_right.parent = character
-    hat.parent = character
-    backpack.parent = character
+    character = bpy.context.scene.objects[character_name]
 
-    # Select all objects to join
-    bpy.ops.object.select_all(action='DESELECT')
-    character.select_set(True)
-    bpy.context.view_layer.objects.active = character
-
-    # Join all meshes into one object
-    #bpy.ops.object.join() # No need to join since we are parenting
-
-    # Run checks
     check_mechanics(character)
     check_physics(character)
     check_appearance(character)
     check_structure(character)
-
-    log("Character creation complete")
 
 bpy.app.timers.register(main)
