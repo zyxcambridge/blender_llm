@@ -293,6 +293,14 @@ def execute_blender_code(code: str):
         print("[AI Code Execution] 接收到空代码，跳过执行。", flush=True)
         return True, "无代码执行。"  # 可以视为空代码执行成功
 
+    # 新功能：在执行AI脚本前删除默认Cube，避免场景干扰
+    if "Cube" in bpy.data.objects:
+        try:
+            bpy.data.objects.remove(bpy.data.objects["Cube"], do_unlink=True)
+            print("[AI Code Execution] 默认立方体已删除", flush=True)
+        except Exception as e:
+            print(f"[AI Code Execution] 删除默认立方体失败: {e}", flush=True)
+
     try:
         # exec() 在当前全局和局部命名空间中执行代码。
         # 显式传递 globals() 确保它可以访问 bpy 等模块。
