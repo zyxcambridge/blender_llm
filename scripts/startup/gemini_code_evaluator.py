@@ -315,6 +315,9 @@ def test_execute_code(code):
 def evaluate_and_fix_code(max_iterations=100):
     """评估并修复gemini_latest_code.py文件中的代码"""
     script_path = get_script_path()
+    script_dir = os.path.dirname(script_path)
+    script_name = os.path.basename(script_path)
+    script_base, script_ext = os.path.splitext(script_name)
 
     print(f"\n[Gemini评估与修复] 开始评估并修复脚本: {script_path}", flush=True)
 
@@ -330,6 +333,9 @@ def evaluate_and_fix_code(max_iterations=100):
 
         print(f"[Gemini评估与修复] 成功读取脚本文件，大小: {len(original_code)} 字节", flush=True)
 
+        # 初始化请求计数器
+        api_request_count = 0
+
         # 初始化变量
         current_code = original_code
         # 使用传入的最大迭代次数参数
@@ -344,6 +350,10 @@ def evaluate_and_fix_code(max_iterations=100):
             # 评估代码
             eval_success, eval_result = evaluate_code_with_gemini(current_code)
 
+            # 增加API请求计数
+            api_request_count += 1
+            print(f"[Gemini评估与修复] API请求计数: {api_request_count}", flush=True)
+
             if eval_success:
                 # 代码评估通过
                 print(f"[Gemini评估与修复] 代码评估通过: {eval_result}", flush=True)
@@ -355,11 +365,20 @@ def evaluate_and_fix_code(max_iterations=100):
                 if test_success:
                     # 代码执行成功，保存并返回
                     if current_code != original_code:
+                        # 生成最终版本文件名，包含迭代次数和请求计数
+                        final_version_file_name = f"{script_base}_v{iteration}_final{script_ext}"
+                        final_version_file_path = os.path.join(script_dir, final_version_file_name)
+
+                        # 保存当前代码到最终版本文件
+                        with open(final_version_file_path, 'w', encoding='utf-8') as f:
+                            f.write(current_code)
+
+                        # 同时保存到原始文件
                         with open(script_path, 'w', encoding='utf-8') as f:
                             f.write(current_code)
 
                         changes_summary = "\n".join([f"- {change}" for change in all_changes])
-                        success_msg = f"脚本已评估、修复并保存到 {script_path}\n修改摘要:\n{changes_summary}"
+                        success_msg = f"脚本已评估、修复并保存到 {script_path} 和 {final_version_file_name}\n修改摘要:\n{changes_summary}"
 
                         print(f"[Gemini评估与修复] 成功: {success_msg}", flush=True)
                         return True, success_msg
@@ -374,11 +393,33 @@ def evaluate_and_fix_code(max_iterations=100):
                     # 使用执行错误信息修复代码
                     fix_success, fix_result = fix_code_with_gemini(current_code, test_result)
 
+                    # 增加API请求计数
+                    api_request_count += 1
+                    print(f"[Gemini评估与修复] API请求计数: {api_request_count}", flush=True)
+
                     if fix_success:
                         # 修复成功，更新代码
                         current_code = fix_result
                         all_changes.append(f"第 {iteration} 轮修复: 根据执行错误修复代码")
                         print("[Gemini评估与修复] 根据执行错误修复代码", flush=True)
+
+                        # 每3次请求保存一个新文件
+                        if api_request_count % 3 == 0:
+                            # 生成新文件名，包含迭代次数和请求计数
+                            version_file_name = f"{script_base}_v{iteration}_req{api_request_count}{script_ext}"
+                            version_file_path = os.path.join(script_dir, version_file_name)
+
+                            # 保存当前代码到新文件
+                            with open(version_file_path, 'w', encoding='utf-8') as f:
+                                f.write(current_code)
+
+                            print(
+                                f"[Gemini评估与修复] 保存了第 {api_request_count} 次请求的代码到新文件: {version_file_name}",
+                                flush=True,
+                            )
+                            all_changes.append(
+                                f"保存了第 {api_request_count} 次请求的代码到新文件: {version_file_name}"
+                            )
                     else:
                         # 修复失败
                         error_msg = f"无法修复执行错误: {fix_result}"
@@ -393,15 +434,55 @@ def evaluate_and_fix_code(max_iterations=100):
                         current_code = eval_result["fixed_code"]
                         all_changes.append(f"第 {iteration} 轮评估: 根据评估结果修复代码")
                         print("[Gemini评估与修复] 根据评估结果修复代码", flush=True)
+
+                        # 每3次请求保存一个新文件
+                        if api_request_count % 3 == 0:
+                            # 生成新文件名，包含迭代次数和请求计数
+                            version_file_name = f"{script_base}_v{iteration}_req{api_request_count}{script_ext}"
+                            version_file_path = os.path.join(script_dir, version_file_name)
+
+                            # 保存当前代码到新文件
+                            with open(version_file_path, 'w', encoding='utf-8') as f:
+                                f.write(current_code)
+
+                            print(
+                                f"[Gemini评估与修复] 保存了第 {api_request_count} 次请求的代码到新文件: {version_file_name}",
+                                flush=True,
+                            )
+                            all_changes.append(
+                                f"保存了第 {api_request_count} 次请求的代码到新文件: {version_file_name}"
+                            )
                     else:
                         # 没有提取到修复后的代码，尝试使用评估结果修复
                         fix_success, fix_result = fix_code_with_gemini(current_code, eval_result["evaluation"])
+
+                        # 增加API请求计数
+                        api_request_count += 1
+                        print(f"[Gemini评估与修复] API请求计数: {api_request_count}", flush=True)
 
                         if fix_success:
                             # 修复成功，更新代码
                             current_code = fix_result
                             all_changes.append(f"第 {iteration} 轮修复: 根据评估结果修复代码")
                             print("[Gemini评估与修复] 根据评估结果修复代码", flush=True)
+
+                            # 每3次请求保存一个新文件
+                            if api_request_count % 3 == 0:
+                                # 生成新文件名，包含迭代次数和请求计数
+                                version_file_name = f"{script_base}_v{iteration}_req{api_request_count}{script_ext}"
+                                version_file_path = os.path.join(script_dir, version_file_name)
+
+                                # 保存当前代码到新文件
+                                with open(version_file_path, 'w', encoding='utf-8') as f:
+                                    f.write(current_code)
+
+                                print(
+                                    f"[Gemini评估与修复] 保存了第 {api_request_count} 次请求的代码到新文件: {version_file_name}",
+                                    flush=True,
+                                )
+                                all_changes.append(
+                                    f"保存了第 {api_request_count} 次请求的代码到新文件: {version_file_name}"
+                                )
                         else:
                             # 修复失败
                             error_msg = f"无法根据评估结果修复代码: {fix_result}"
@@ -415,12 +496,20 @@ def evaluate_and_fix_code(max_iterations=100):
 
         # 达到最大迭代次数
         if current_code != original_code:
-            # 保存最后一次修改的代码
+            # 生成最终版本文件名，包含迭代次数和请求计数
+            final_version_file_name = f"{script_base}_v{iteration}_max_iterations{script_ext}"
+            final_version_file_path = os.path.join(script_dir, final_version_file_name)
+
+            # 保存当前代码到最终版本文件
+            with open(final_version_file_path, 'w', encoding='utf-8') as f:
+                f.write(current_code)
+
+            # 同时保存到原始文件
             with open(script_path, 'w', encoding='utf-8') as f:
                 f.write(current_code)
 
             changes_summary = "\n".join([f"- {change}" for change in all_changes])
-            warning_msg = f"达到最大迭代次数 ({max_iterations})，保存最后一次修改的代码到 {script_path}\n修改摘要:\n{changes_summary}"
+            warning_msg = f"达到最大迭代次数 ({max_iterations})，保存最后一次修改的代码到 {script_path} 和 {final_version_file_name}\n修改摘要:\n{changes_summary}"
 
             print(f"[Gemini评估与修复] 警告: {warning_msg}", flush=True)
             return True, warning_msg
