@@ -5,11 +5,6 @@ import math
 def log(message):
     print(f"Log: {message}")
 
-def delete_all_objects():
-    log("Deleting all objects in scene")
-    bpy.ops.object.select_all(action='SELECT')
-    bpy.ops.object.delete(use_global=False)
-
 def add_material(obj, material_name, color=(0.8, 0.8, 0.8, 1)):
     try:
         material = bpy.data.materials.get(material_name)
@@ -71,7 +66,8 @@ def create_ear(head, radius=0.2, ear_offset=(0.6, 0, 0.8), material_name="EarMat
     try:
         ear_location = (head.location.x + ear_offset[0], head.location.y + ear_offset[1], head.location.z + ear_offset[2])
         ear = create_sphere(radius=radius, location=ear_location, name="Ear", material_name=material_name, color=color)
-        ear.parent = head
+        if ear:
+            ear.parent = head
         return ear
     except Exception as e:
         log(f"Error creating ear: {e}")
@@ -82,7 +78,8 @@ def create_eye(head, radius=0.15, eye_offset=(0.4, 0.5, 0.3), material_name="Eye
     try:
         eye_location = (head.location.x + eye_offset[0], head.location.y + eye_offset[1], head.location.z + eye_offset[2])
         eye = create_sphere(radius=radius, location=eye_location, name="Eye", material_name=material_name, color=color)
-        eye.parent = head
+        if eye:
+            eye.parent = head
         return eye
     except Exception as e:
         log(f"Error creating eye: {e}")
@@ -101,14 +98,15 @@ def create_mouth(head, major_radius=0.4, minor_radius=0.1, mouth_offset=(0, -0.6
         )
         mouth = bpy.context.object
         mouth.name = "Mouth"
-        add_material(mouth, material_name, color=color)
-        mouth.parent = head
+        if mouth:
+            mouth.parent = head
+            add_material(mouth, material_name, color=color)
         return mouth
     except Exception as e:
         log(f"Error creating mouth: {e}")
         return None
 
-def create_arm(body, radius=0.1, length=1.0, arm_offset=(0.7, 0, 0.7), material_name="ArmMaterial", rotation=(0, 0, 0), color=(0.8, 0.8, 0.8, 1)):
+def create_arm(body, length=1.0, radius=0.1, arm_offset=(0.7, 0, 0.7), material_name="ArmMaterial", rotation=(0, 0, 0), color=(0.8, 0.8, 0.8, 1)):
     log("Creating arm")
     try:
         arm_location = (body.location.x + arm_offset[0], body.location.y + arm_offset[1], body.location.z + body.dimensions.z/2 + arm_offset[2])
@@ -124,8 +122,7 @@ def create_arm(body, radius=0.1, length=1.0, arm_offset=(0.7, 0, 0.7), material_
 def create_leg(body, length=1.2, radius=0.2, leg_offset=(0, 0, 0), material_name="LegMaterial", rotation=(0, 0, 0), color=(0.8, 0.8, 0.8, 1)):
     log("Creating leg")
     try:
-        body_height = body.dimensions.z
-        leg_y_offset = - body_height/2 - length/2
+        leg_y_offset = - body.dimensions.z/2 - length/2
         leg_location = (body.location.x + leg_offset[0], body.location.y + leg_offset[1], body.location.z + leg_y_offset)
 
         leg = create_cylinder(radius=radius, depth=length, location=leg_location, name="Leg", material_name=material_name, color=color)
@@ -137,13 +134,13 @@ def create_leg(body, length=1.2, radius=0.2, leg_offset=(0, 0, 0), material_name
         log(f"Error creating leg: {e}")
         return None
 
-def create_foot(leg, leg_length, length=0.3, width=0.4, height=0.1, foot_offset=(0, 0, 0), material_name="FootMaterial", foot_shape="CUBE", color=(0.8, 0.8, 0.8, 1)):
+def create_foot(leg, length=0.3, width=0.4, height=0.1, foot_offset=(0, 0, 0), material_name="FootMaterial", foot_shape="CUBE", color=(0.8, 0.8, 0.8, 1)):
     log("Creating foot")
     try:
-        foot_location = (leg.location.x + foot_offset[0], leg.location.y + foot_offset[1], leg.location.z - leg_length/2 - height/2)
+        foot_location = (leg.location.x + foot_offset[0], leg.location.y + foot_offset[1], leg.location.z - leg.dimensions.y/2 - height/2)
 
         if foot_shape == "CUBE":
-            foot = create_cube(size=1.0, location=foot_location, name="Foot", material_name=material_name, color=color)
+            foot = create_cube(size=1, location=foot_location, name="Foot", material_name=material_name, color=color)
             if foot:
                 foot.scale = (width, length, height)
         elif foot_shape == "SPHERE":
@@ -161,10 +158,10 @@ def create_foot(leg, leg_length, length=0.3, width=0.4, height=0.1, foot_offset=
         log(f"Error creating foot: {e}")
         return None
 
-def create_hat(head, radius=0.6, height=0.8, hat_offset=(0, 0, 0.7), material_name="HatMaterial", color=(0.8, 0.8, 0.8, 1), hat_shape="CONE"):
+def create_hat(head, radius=0.6, height=0.8, hat_offset=(0, 0, 0.7), scale=1.0, material_name="HatMaterial", color=(0.8, 0.8, 0.8, 1), hat_shape="CONE"):
     log("Creating hat")
     try:
-        hat_location = (head.location.x + hat_offset[0], head.location.y + hat_offset[1], head.location.z + head.dimensions.z/2 + hat_offset[2])
+        hat_location = (head.location.x + hat_offset[0] * scale, head.location.y + hat_offset[1] * scale, head.location.z + head.dimensions.z/2 + hat_offset[2] * scale)
         if hat_shape == "CONE":
             bpy.ops.mesh.primitive_cone_add(radius1=radius, depth=height, align='WORLD', location=hat_location)
         elif hat_shape == "CYLINDER":
@@ -176,18 +173,18 @@ def create_hat(head, radius=0.6, height=0.8, hat_offset=(0, 0, 0.7), material_na
             return None
         hat = bpy.context.object
         hat.name = "Hat"
-        add_material(hat, material_name, color=color)
-        hat.parent = head
+        if hat:
+            hat.parent = head
+            add_material(hat, material_name, color=color)
         return hat
     except Exception as e:
         log(f"Error creating hat: {e}")
         return None
 
-def create_backpack(body, size=(0.5, 0.3, 0.7), backpack_offset=(0, 0.1, 0.5), material_name="BackpackMaterial", color=(0.8, 0.8, 0.8, 1), backpack_shape="CUBE"):
+def create_backpack(body, size=(0.5, 0.3, 0.7), backpack_offset=(0, 0.1, 0.5), scale=1.0, material_name="BackpackMaterial", color=(0.8, 0.8, 0.8, 1), backpack_shape="CUBE"):
     log("Creating backpack")
     try:
-        body_height = body.dimensions.z
-        backpack_location = (body.location.x + backpack_offset[0], body.location.y + backpack_offset[1], body.location.z + body_height/2 + backpack_offset[2])
+        backpack_location = (body.location.x + backpack_offset[0] * scale, body.location.y + backpack_offset[1] * scale, body.location.z + body.dimensions.z/2 + backpack_offset[2] * scale)
         if backpack_shape == "CUBE":
             backpack = create_cube(size=1, location=backpack_location, name="Backpack", material_name=material_name, color=color)
             if backpack:
@@ -255,7 +252,7 @@ def scale_character(character, scale_factor=1.0):
 
 class CartoonCharacter:
     def __init__(self, name="CartoonCharacter", body_height=2.0, body_radius=0.5, head_radius=1.0, arm_length=1.0, leg_length=1.2, scale=1.0, location=(0, 0, 0),
-                 ear_color=(0.8, 0.8, 0.8, 1), eye_color=(0,1,0,1), mouth_color=(0,0,1,1), hat_color=(0.8, 0.8, 0.8, 1), backpack_color=(0.8, 0.8, 0.8, 1),
+                 ear_color=(0.8, 0.8, 0.8, 1), eye_color=(0,1,0,1), mouth_color=(0,0,1,1), hat_color=(1,1,0,1), backpack_color=(1,0,1,1),
                  foot_shape="CUBE", hat_shape="CONE", backpack_shape="CUBE", ground_size=10, base_radius=1.5, base_height=0.3,
                  body_color=(0.2, 0.8, 0.2, 1), head_color=(0.8, 0.2, 0.2, 1)):
         self.name = name
@@ -298,11 +295,6 @@ class CartoonCharacter:
         self.body_color = body_color
         self.head_color = head_color
 
-        if self.body_height <= 0:
-            raise ValueError("body_height must be greater than 0")
-        if self.head_radius <= 0:
-            raise ValueError("head_radius must be greater than 0")
-
     def build(self):
         try:
             log(f"Creating character: {self.name}")
@@ -314,39 +306,26 @@ class CartoonCharacter:
             root = bpy.context.object
             root.name = self.name + "_Root"
 
-            # Create collection for the character
-            character_collection = bpy.data.collections.new(self.name + "_Collection")
-            bpy.context.scene.collection.children.link(character_collection)
-
-            def add_to_collection(obj):
-                character_collection.objects.link(obj)
-
             self.base = create_base(radius=self.base_radius * self.scale, height=self.base_height * self.scale)
             if not self.base:
                 log("Base creation failed. Aborting.")
                 return
             self.base.parent = root
-            add_to_collection(self.base)
 
-            body_location = (0, 0, self.base_height * self.scale)
-            self.body = create_body(body_height=self.body_height * self.scale, body_radius=self.body_radius * self.scale, location=body_location, color=self.body_color)
+            body_location = (self.location[0], self.location[1], self.location[2] + self.base_height * self.scale)
+            self.body = create_body(body_height=self.body_height * self.scale, body_radius=self.body_radius * self.scale, location=(0, 0, 0), color=self.body_color)
             if not self.body:
                 log("Body creation failed. Aborting.")
                 bpy.data.objects.remove(root, do_unlink=True)
-                bpy.data.collections.remove(character_collection)
                 return
             self.body.parent = root
-            add_to_collection(self.body)
 
-            head_location = (0, 0, self.body_height * self.scale / 2 + self.head_radius * self.scale + self.base_height * self.scale)
-            self.head = create_head(radius=self.head_radius * self.scale, location=head_location, color=self.head_color)
+            self.head = create_head(radius=self.head_radius * self.scale, location=(0, 0, self.body_height * self.scale / 2 + self.head_radius * self.scale), color=self.head_color)
             if not self.head:
                 log("Head creation failed. Aborting.")
                 bpy.data.objects.remove(root, do_unlink=True)
-                bpy.data.collections.remove(character_collection)
                 return
             self.head.parent = self.body
-            add_to_collection(self.head)
 
             ear_offsets = [(-self.ear_offset[0] * self.scale, self.ear_offset[1] * self.scale, self.ear_offset[2] * self.scale),
                            (self.ear_offset[0] * self.scale, self.ear_offset[1] * self.scale, self.ear_offset[2] * self.scale)]
@@ -355,7 +334,8 @@ class CartoonCharacter:
                 ear = create_ear(self.head, radius=0.2 * self.scale, ear_offset=offset, color=self.ear_color)
                 if ear:
                     self.ears.append(ear)
-                    add_to_collection(ear)
+                else:
+                    log("Ear creation failed. Continuing.")
 
             eye_offsets = [(-self.eye_offset[0] * self.scale, self.eye_offset[1] * self.scale, self.eye_offset[2] * self.scale),
                            (self.eye_offset[0] * self.scale, self.eye_offset[1] * self.scale, self.eye_offset[2] * self.scale)]
@@ -364,74 +344,62 @@ class CartoonCharacter:
                 eye = create_eye(self.head, radius=0.15 * self.scale, eye_offset=offset, color=self.eye_color)
                 if eye:
                     self.eyes.append(eye)
-                    add_to_collection(eye)
+                else:
+                    log("Eye creation failed. Continuing.")
 
             self.mouth = create_mouth(self.head, major_radius=0.4 * self.scale, minor_radius=0.1 * self.scale, mouth_offset=(0, -0.6 * self.scale, -0.2 * self.scale), color=self.mouth_color)
-            if self.mouth:
-                add_to_collection(self.mouth)
 
             arm_offsets = [(-self.arm_offset[0] * self.scale, self.arm_offset[1] * self.scale, self.arm_offset[2] * self.scale),
                            (self.arm_offset[0] * self.scale, self.arm_offset[1] * self.scale, self.arm_offset[2] * self.scale)]
-            arm_rotations = [(0, 0, math.radians(10)), (0, 0, math.radians(-10))]
             self.arms = []
-            for i, offset in enumerate(arm_offsets):
-                arm = create_arm(self.body, length=self.arm_length * self.scale, radius=0.1 * self.scale, arm_offset=offset, rotation=arm_rotations[i], color=self.hat_color)
+            for offset in arm_offsets:
+                arm = create_arm(self.body, length=self.arm_length * self.scale, radius=0.1 * self.scale, arm_offset=offset)
                 if arm:
                     self.arms.append(arm)
-                    add_to_collection(arm)
+                else:
+                    log("Arm creation failed. Continuing.")
 
             leg_offsets = [(-self.leg_offset[0] * self.scale, self.leg_offset[1] * self.scale, 0),
                            (self.leg_offset[0] * self.scale, self.leg_offset[1] * self.scale, 0)]
             self.legs = []
             self.feet = []
-            for offset in leg_offsets:
-                leg = create_leg(self.body, length=self.leg_length * self.scale, radius=0.2 * self.scale, leg_offset=offset, color=self.body_color)
+            for i, offset in enumerate(leg_offsets):
+                x_offset = offset[0]
+                if i == 0:
+                    x_offset = -self.leg_offset[0] * self.scale
+                else:
+                    x_offset = self.leg_offset[0] * self.scale
+                leg_offset = (x_offset, offset[1], offset[2])
+                leg = create_leg(self.body, length=self.leg_length * self.scale, radius=0.2 * self.scale, leg_offset=leg_offset)
                 if leg:
                     self.legs.append(leg)
-                    add_to_collection(leg)
-                    foot = create_foot(leg, self.leg_length * self.scale, length=0.3 * self.scale, width=0.4 * self.scale, height=0.1 * self.scale, foot_offset=(0, 0, 0), foot_shape=self.foot_shape, color=self.head_color)
+                    foot = create_foot(leg, length=0.3 * self.scale, width=0.4 * self.scale, height=0.1 * self.scale, foot_offset=(0, 0, 0), foot_shape=self.foot_shape)
                     if foot:
                         self.feet.append(foot)
-                        add_to_collection(foot)
+                    else:
+                        log("Foot creation failed. Continuing.")
                 else:
                     log("Leg creation failed. Continuing.")
 
-            self.hat = create_hat(self.head, radius=0.6 * self.scale, height=0.8 * self.scale, hat_offset=self.hat_offset, color=self.hat_color, hat_shape=self.hat_shape)
-            if self.hat:
-                add_to_collection(self.hat)
-
-            self.backpack = create_backpack(self.body, size=(0.5 * self.scale, 0.3 * self.scale, 0.7 * self.scale), backpack_offset=self.backpack_offset, color=self.backpack_color, backpack_shape=self.backpack_shape)
-            if self.backpack:
-                add_to_collection(self.backpack)
-
+            self.hat = create_hat(self.head, radius=0.6 * self.scale, height=0.8 * self.scale, hat_offset=self.hat_offset, scale=self.scale, color=self.hat_color, hat_shape=self.hat_shape)
+            self.backpack = create_backpack(self.body, size=(0.5 * self.scale, 0.3 * self.scale, 0.7 * self.scale), backpack_offset=self.backpack_offset, scale=self.scale, color=self.backpack_color, backpack_shape=self.backpack_shape)
             self.ground = create_ground(size=self.ground_size)
             if self.ground:
-                ground_z = -self.leg_length * self.scale - self.base_height * self.scale
-                self.ground.location = (self.location[0], self.location[1], ground_z)
                 self.ground.parent = root
-                add_to_collection(self.ground)
 
             check_mechanics(self.body)
             check_physics(self.body)
             check_appearance(self.body)
             check_structure(self.body)
 
-            root.location = self.location
-            add_to_collection(root)
-
             log("Character creation complete.")
 
         except Exception as e:
             log(f"Error during character creation: {e}")
-            # 清理已创建的对象
-            for obj in character_collection.objects:
-                bpy.data.objects.remove(obj, do_unlink=True)
-            bpy.data.collections.remove(character_collection)
 
 def main():
     try:
-        delete_all_objects()
-        character = CartoonCharacter(scale=1.0, location=(0,0,0), ear_color=(0.2, 0.2, 0.8, 1), eye_color=(0,1,0,1), mouth_color=(0,0,1,1), hat_color=(0.8, 0.8, 0.2, 1), backpack_color=(0.8, 0.2, 0.8, 1),
+        character = CartoonCharacter(scale=1.0, location=(0,0,0), ear_color=(1,0,0,1), eye_color=(0,1,0,1), mouth_color=(0,0,1,1), hat_color=(1,1,0,1), backpack_color=(1,0,1,1),
                                      foot_shape="CUBE", hat_shape="CONE", backpack_shape="CUBE", ground_size=20, base_radius=1.5, base_height=0.3,
                                      body_color=(0.2, 0.8, 0.2, 1), head_color=(0.8, 0.2, 0.2, 1))
         character.build()

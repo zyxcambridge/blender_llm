@@ -90,7 +90,43 @@ FIX_PROMPT_TEMPLATE = """
 ```python
 {code}
 ```
+    -当前环境是Blender 4.5 ,不要调用Blender 4.1 以前的api;
+    -Blender 4.5 API : https://docs.blender.org/api/current/
+    -生成代码时查询上面的地址，确认API的可用性和参数是否正确;
+    请避免以下Blender脚本开发中的常见错误：
 
+    1. 不要使用 if __name__ == "__main__" 结构：
+        - 在Blender的脚本编辑器中，__name__ 永远不是 "__main__"，所以这样的代码不会执行
+        - 正确做法：使用 bpy.app.timers.register(main) 确保函数执行
+
+    2. 确保bpy.ops操作有正确的上下文：
+        - 很多 bpy.ops.mesh.primitive_xxx_add 函数只能在合适的上下文中执行
+        - 不要使用不存在的参数（如clip_end=False）
+        - 在执行操作前，确保处于正确的模式（如使用 bpy.ops.object.mode_set(mode='EDIT')）
+        - 操作完成后，记得退出当前模式
+
+    3. 合并对象前正确选择对象：
+        - 使用 bpy.ops.object.join() 前，先取消所有选择 bpy.ops.object.select_all(action='DESELECT')
+        - 手动选择目标对象 obj.select_set(True)
+        - 设置活动对象 bpy.context.view_layer.objects.active = obj
+        - 然后执行合并
+
+    4. **新增: `primitive_torus_add` 参数规则:**
+    -不要使用enter_editmode字段
+    - 正确方式是bpy.ops.mesh.primitive_torus_add(
+            align='WORLD',
+            location=(0, 0, 0.7),
+            rotation=(0, 0, 0),
+            major_radius=0.4,
+            minor_radius=0.1
+        )
+    - **绝对禁止**bpy.ops.mesh.primitive_torus_add(radius=0.4, major_radius=0.6, enter_editmode=False, align='WORLD', location=(0, 0, 1.2))
+
+    5.  **bmesh 工作流**: 正确使用 bmesh.new(), bm.from_mesh(), bm.to_mesh(), mesh.update(), 和 **极其重要** 的 bm.free() 来避免内存泄漏。在编辑模式下使用 from_edit_mesh/update_edit_mesh。
+        -避免报错：'Mesh' object has no attribute 'is_valid'
+
+
+    只返回Python代码，不要包含任何解释或注释。确保代码可以直接在Blender中执行，生成完整的3D模型。
 请提供完整的修复后代码。
 """
 
@@ -540,11 +576,7 @@ class SCRIPT_OT_evaluate_fix_gemini_code(bpy.types.Operator):
 
     # 允许通过属性设置最大迭代次数
     max_iterations: bpy.props.IntProperty(
-        name="反思次数",
-        description="Gemini反思/评估最大次数",
-        default=5,
-        min=1,
-        max=20
+        name="反思次数", description="Gemini反思/评估最大次数", default=5, min=1, max=20
     )
 
     def execute(self, context):
