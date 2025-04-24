@@ -185,7 +185,10 @@ class VIEW3D_PT_ai_assistant(Panel):
         if has_fix_script:
             fix_row = layout.row(align=True)
             fix_row.scale_y = 1.5  # 增大按钮高度
-            fix_row.operator("script.fix_gemini_code", text="Agent 评估反思", icon='OUTLINER_OB_FORCE_FIELD')
+            op = fix_row.operator("script.evaluate_fix_gemini_code", text="Agent 评估反思", icon='OUTLINER_OB_FORCE_FIELD')
+            # 新增：反思次数输入框，紧挨着按钮
+            fix_row.prop(ai_props, "reflection_count", text="反思次数")
+            op.max_iterations = ai_props.reflection_count
 
         # 执行 Blender Python 脚本按钮
         execute_row = layout.row(align=True)

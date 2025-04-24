@@ -24,6 +24,7 @@ class AIAssistantProperties(PropertyGroup):
     messages: CollectionProperty(type=AIMessageItem, name="Messages", description="Chat history")
     active_message_index: IntProperty(name="Active Message Index", description="Index of the active message", default=0)
     keep_open: BoolProperty(name="Keep Open", description="Keep the AI Assistant panel open", default=False)
+    reflection_count: IntProperty(name="反思次数", description="Gemini反思/评估最大次数", default=5, min=1, max=20)
 
 
 # Register the classes

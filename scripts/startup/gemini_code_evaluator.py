@@ -312,7 +312,7 @@ def test_execute_code(code):
         return False, error_msg + "\n" + traceback.format_exc()
 
 
-def evaluate_and_fix_code(max_iterations=100):
+def evaluate_and_fix_code(max_iterations=5):
     """评估并修复gemini_latest_code.py文件中的代码"""
     script_path = get_script_path()
     script_dir = os.path.dirname(script_path)
@@ -538,8 +538,14 @@ class SCRIPT_OT_evaluate_fix_gemini_code(bpy.types.Operator):
         # 检查脚本文件是否存在
         return os.path.exists(get_script_path())
 
-    # 定义类变量来存储最大迭代次数
-    max_iterations = 100
+    # 允许通过属性设置最大迭代次数
+    max_iterations: bpy.props.IntProperty(
+        name="反思次数",
+        description="Gemini反思/评估最大次数",
+        default=5,
+        min=1,
+        max=20
+    )
 
     def execute(self, context):
         print("\n[Gemini评估与修复] 执行评估并修复脚本操作", flush=True)
