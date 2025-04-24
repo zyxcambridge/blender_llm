@@ -11,7 +11,11 @@ make lite -j16 &&/Users/yixin0909zhang/blender-git/build_darwin_lite/bin/Blender
 用户一进入blender后，场景有默认的cube ，给我删掉；
 
 
-请求次数达到5次就执行一次 agent 执行 ，可视化一下，
+agent 评估反思
+
+gemini 请求次数达到5次，就停止；现在好像是100次；只需要把100变成5就行
+
+agent 评估反思 旁边加一个按钮，反思次数，默认是5次，用户可以修改；
 
 
 
