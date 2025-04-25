@@ -7,7 +7,6 @@
 # support reloading sub-modules
 if "bpy" in locals():
     from importlib import reload
-
     _modules_loaded[:] = [reload(val) for val in _modules_loaded]
     del reload
 
@@ -62,14 +61,13 @@ _modules = [
     "properties_world",
     "properties_collection",
     "generic_ui_list",
+
     # Generic Space Modules
     #
     # Depends on DNA_WORKSPACE_TOOL (C define).
     "space_toolsystem_common",
     "space_toolsystem_toolbar",
-    "space_ai_sidebar",
-    "topbar_ai_menu",
-    "space_3d_moder",
+
     "space_clip",
     "space_console",
     "space_dopesheet",
@@ -90,6 +88,7 @@ _modules = [
     "space_userpref",
     "space_view3d",
     "space_view3d_toolbar",
+
     # XXX, keep last so panels show after all other tool options.
     "properties_workspace",
 ]
@@ -109,13 +108,11 @@ del _namespace
 @bpy.app.handlers.persistent
 def translation_update(_):
     from .properties_output import RENDER_PT_format
-
     RENDER_PT_format._frame_rate_args_prev = None
 
 
 def register():
     from bpy.utils import register_class
-
     for cls in classes:
         register_class(cls)
     for mod in _modules_loaded:
@@ -185,7 +182,6 @@ def register():
 
 def unregister():
     from bpy.utils import unregister_class
-
     for mod in reversed(_modules_loaded):
         for cls in reversed(mod.classes):
             if cls.is_registered:
@@ -198,7 +194,6 @@ def unregister():
         bpy.app.handlers.translation_update_post.remove(translation_update)
     except ValueError:
         pass
-
 
 # Define a default UIList, when a list does not need any custom drawing...
 # Keep in sync with its #defined name in UI_interface.hh

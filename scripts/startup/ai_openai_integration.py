@@ -10,6 +10,7 @@ client = OpenAI(
     api_key=token,
 )
 
+
 def generate_blender_code(prompt_text):
     if not token:
         return False, "未配置 GITHUB_TOKEN 环境变量，无法访问 OpenAI API。"
@@ -33,14 +34,11 @@ def generate_blender_code(prompt_text):
     )
     try:
         response = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt_text}
-            ],
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt_text}],
             temperature=0.3,
             top_p=1.0,
-            max_tokens=2048,
-            model=model
+            max_tokens=32768,
+            model=model,
         )
         code = response.choices[0].message.content
         # 去除 markdown 格式
@@ -51,6 +49,7 @@ def generate_blender_code(prompt_text):
         return True, code
     except Exception as e:
         return False, f"OpenAI API 调用失败: {e}"
+
 
 def evaluate_and_fix_code(code, error_message):
     if not token:
@@ -68,16 +67,95 @@ def evaluate_and_fix_code(code, error_message):
     user_prompt = f"错误信息：\n{error_message}\n当前代码：\n```python\n{code}\n```"
     try:
         response = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             temperature=0.3,
             top_p=1.0,
-            max_tokens=2048,
-            model=model
+            max_tokens=32768,
+            model=model,
         )
         content = response.choices[0].message.content
         return True, content
     except Exception as e:
         return False, f"OpenAI API 调用失败: {e}"
+
+
+CODE_SAVE_DIR = ""
+
+
+def set_code_save_directory(directory):
+    global CODE_SAVE_DIR
+    if not isinstance(directory, str):
+        print(f"[OpenAI] 设置代码保存目录失败: 提供的路径不是字符串 ('{directory}')")
+        return False
+    try:
+        if directory == "":
+            CODE_SAVE_DIR = ""
+            print("[OpenAI] 代码保存目录已设置为: 当前工作目录")
+            return True
+        expanded_dir = os.path.expanduser(directory)
+        if not os.path.exists(expanded_dir):
+            print(f"[OpenAI] 目录不存在，尝试创建: {expanded_dir}")
+            os.makedirs(expanded_dir, exist_ok=True)
+        elif not os.path.isdir(expanded_dir):
+            print(f"[OpenAI] 设置代码保存目录失败: 路径存在但不是目录: {expanded_dir}")
+            return False
+        CODE_SAVE_DIR = expanded_dir
+        print(f"[OpenAI] 代码保存目录已设置为: {expanded_dir}")
+        return True
+    except OSError as e:
+        print(f"[OpenAI] 设置或创建代码保存目录时发生 OS 错误: {str(e)}")
+        return False
+    except Exception as e:
+        print(f"[OpenAI] 设置代码保存目录时发生未知错误: {str(e)}")
+        return False
+
+
+def get_code_save_directory():
+    import bpy
+
+    if CODE_SAVE_DIR:
+        return os.path.abspath(CODE_SAVE_DIR)
+    else:
+        if bpy.data.filepath:
+            return os.path.abspath(os.path.dirname(bpy.data.filepath))
+        else:
+            return os.path.abspath(os.getcwd())
+
+
+def execute_blender_code(code: str):
+    import sys
+    import traceback
+    import bpy
+
+    print("\n--- [OpenAI Code Execution] ---")
+    print("准备执行以下代码:")
+    print("-" * 20)
+    code_lines = code.strip().split('\n')
+    print('\n'.join(code_lines[:15]) + ('\n...' if len(code_lines) > 15 else ''))
+    print("-" * 20)
+    sys.stdout.flush()
+    success = False
+    result_message = "代码执行未开始。"
+    if not code or not code.strip():
+        print("[OpenAI Code Execution] 接收到空代码，跳过执行。", flush=True)
+        return True, "无代码执行。"
+    if "Cube" in bpy.data.objects:
+        try:
+            bpy.data.objects.remove(bpy.data.objects["Cube"], do_unlink=True)
+            print("[OpenAI Code Execution] 默认立方体已删除", flush=True)
+        except Exception as e:
+            print(f"[OpenAI Code Execution] 删除默认立方体失败: {e}", flush=True)
+    try:
+        exec(code, globals())
+        success = True
+        result_message = "脚本执行成功完成。"
+        print(f"[OpenAI Code Execution] {result_message}", flush=True)
+    except Exception as e:
+        success = False
+        error_traceback = traceback.format_exc()
+        result_message = f"❌ 脚本执行失败:\n{error_traceback}"
+        print(f"[OpenAI Code Execution] 发生运行时错误:", flush=True)
+        print(error_traceback, flush=True)
+    finally:
+        print("--- [OpenAI Code Execution End] ---", flush=True)
+    return success, result_message
