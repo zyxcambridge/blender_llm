@@ -3,16 +3,16 @@ import os
 import json
 import traceback
 import bpy
-import ai_gemini_integration
+import ai_openai_integration
 
 # 导入修复脚本模块
 try:
-    import fix_gemini_script
+    import fix_openai_script
 
     has_fix_script = True
 except ImportError:
     has_fix_script = False
-    print("警告: 无法导入fix_gemini_script模块，修复脚本功能将不可用", flush=True)
+    print("警告: 无法导入fix_openai_script模块，修复脚本功能将不可用", flush=True)
 
 from bpy.types import (
     Panel,
@@ -42,7 +42,7 @@ def load_config():
             "placeholder_short": "描述你想创建的模型...",
             "chat_mode": "Type a message or /subdivide, @",
         },
-        "script_filename": "gemini_latest_code.py",
+        "script_filename": "openai_latest_code.py",
     }
     config = default_config.copy()
 
@@ -71,7 +71,7 @@ def load_config():
 
 
 CONFIG = load_config()
-SCRIPT_FILENAME = CONFIG.get("script_filename", "gemini_latest_code.py")
+SCRIPT_FILENAME = CONFIG.get("script_filename", "openai_latest_code.py")
 
 
 class AIMessageItem(PropertyGroup):
@@ -181,19 +181,10 @@ class VIEW3D_PT_ai_assistant(Panel):
         button_row.scale_y = 1.5  # 增大按钮高度
         button_row.operator("ai.send_message", text="Agent 建模规划", icon='OUTLINER_OB_LIGHT')
 
-        # 修复脚本错误按钮
-        if has_fix_script:
-            fix_row = layout.row(align=True)
-            fix_row.scale_y = 1.5  # 增大按钮高度
-            op = fix_row.operator("script.evaluate_fix_gemini_code", text="Agent 评估反思", icon='OUTLINER_OB_FORCE_FIELD')
-            # 新增：反思次数输入框，紧挨着按钮
-            fix_row.prop(ai_props, "reflection_count", text="反思次数")
-            op.max_iterations = ai_props.reflection_count
-
-        # 执行 Blender Python 脚本按钮
+        # 只保留“Agent 执行”按钮
         execute_row = layout.row(align=True)
-        execute_row.scale_y = 1.5  # 增大按钮高度
-        execute_row.operator("ai.execute_script", text="Agent 执行", icon='OUTLINER_OB_ARMATURE')
+        execute_row.scale_y = 1.5
+        execute_row.operator("ai.execute_script", text="Agent 执行", icon='PLAY')
 
 
 class AI_OT_initialize(bpy.types.Operator):
@@ -261,35 +252,13 @@ class AI_OT_send_message(bpy.types.Operator):
 
         ai_response_text = "处理中..."
         try:
-            import os
-            import importlib
-            use_openai = False
-            openai_success = False
-            openai_result = None
 
-            if os.environ.get("GITHUB_TOKEN"):
-                try:
-                    ai_openai_integration = importlib.import_module("ai_openai_integration")
-                    use_openai = True
-                except ImportError:
-                    use_openai = False
+            import ai_openai_integration
 
-            if use_openai:
-                print(f"\n==== Calling OpenAI GPT-4.1: {user_input} ====", flush=True)
-                try:
-                    success, result = ai_openai_integration.generate_blender_code(user_input)
-                    openai_success = success
-                    openai_result = result
-                except Exception as e:
-                    print(f"[OpenAI] 调用失败: {e}", flush=True)
-                    openai_success = False
-                    openai_result = f"OpenAI API 调用异常: {e}"
-            else:
-                import ai_gemini_integration
-                print(f"\n==== Calling Gemini: {user_input} ====", flush=True)
-                success, result = ai_gemini_integration.generate_blender_code(user_input)
-                openai_success = success
-                openai_result = result
+            print(f"\n==== Calling openai: {user_input} ====", flush=True)
+            success, result = ai_openai_integration.generate_blender_code(user_input)
+            openai_success = success
+            openai_result = result
 
             if openai_success:
                 print("[AI] 代码生成成功。", flush=True)
@@ -298,11 +267,7 @@ class AI_OT_send_message(bpy.types.Operator):
                 display_code = "\n".join(code_snippet[:8]) + ("\n..." if len(code_snippet) > 8 else "")
                 ai_response_text = f"✅ 代码已生成:\n```python\n{display_code}\n```\n"
 
-                # 代码保存路径兼容
-                if use_openai:
-                    save_dir = os.getcwd()
-                else:
-                    save_dir = ai_gemini_integration.get_code_save_directory()
+                save_dir = ai_openai_integration.get_code_save_directory()
                 script_path = os.path.join(save_dir, SCRIPT_FILENAME)
                 try:
                     os.makedirs(save_dir, exist_ok=True)
@@ -328,10 +293,10 @@ class AI_OT_send_message(bpy.types.Operator):
                         fix_result = f"OpenAI 评估修复异常: {e}"
                 else:
                     try:
-                        success_fix, fix_result = ai_gemini_integration.evaluate_and_fix_code("", result)
+                        success_fix, fix_result = ai_openai_integration.evaluate_and_fix_code("", result)
                     except Exception as e:
                         success_fix = False
-                        fix_result = f"Gemini 评估修复异常: {e}"
+                        fix_result = f"openai 评估修复异常: {e}"
                 ai_response_text = f"❌ 代码生成失败: {openai_result if use_openai else result}\n"
                 if success_fix and fix_result:
                     ai_response_text += f"\n🛠️ 自动评估与修复建议:\n{fix_result}"
@@ -377,17 +342,12 @@ class AI_OT_execute_script(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        # 检查是否有文本编辑器打开的脚本
-        for area in context.screen.areas:
-            if area.type == 'TEXT_EDITOR' and area.spaces.active.text:
-                return True
-
-        # 如果没有打开的脚本，检查是否有保存的 gemini_latest_code.py 文件
+        return True  # 临时允许按钮始终显示
         if cls._script_path is None or not os.path.exists(cls._script_path):
             try:
-                import ai_gemini_integration
+                import ai_openai_integration
 
-                save_dir = ai_gemini_integration.get_code_save_directory()
+                save_dir = ai_openai_integration.get_code_save_directory()
                 if not save_dir:
                     cls._script_path = ""
                     return False
@@ -406,7 +366,7 @@ class AI_OT_execute_script(bpy.types.Operator):
         script_name = ""
 
         try:
-            import ai_gemini_integration
+            import ai_openai_integration
 
             # 首先检查是否有文本编辑器打开的脚本
             active_text = None
@@ -421,8 +381,8 @@ class AI_OT_execute_script(bpy.types.Operator):
                 script_name = active_text.name
                 print(f"\n[Execute Script] 执行文本编辑器中的脚本: {script_name}", flush=True)
             else:
-                # 如果没有打开的脚本，使用保存的 gemini_latest_code.py 文件
-                save_dir = ai_gemini_integration.get_code_save_directory()
+                # 如果没有打开的脚本，使用保存的 openai_latest_code.py 文件
+                save_dir = ai_openai_integration.get_code_save_directory()
                 if not save_dir:
                     raise FileNotFoundError("代码保存目录未配置。")
                 script_path = os.path.join(save_dir, SCRIPT_FILENAME)
@@ -435,7 +395,7 @@ class AI_OT_execute_script(bpy.types.Operator):
                 script_name = SCRIPT_FILENAME
 
             # 执行脚本代码
-            exec_success, exec_result = ai_gemini_integration.execute_blender_code(script_code)
+            exec_success, exec_result = ai_openai_integration.execute_blender_code(script_code)
 
             if exec_success:
                 report_msg = f"脚本执行完毕: {exec_result}"
@@ -593,7 +553,7 @@ def register():
     # 注册修复脚本模块
     if has_fix_script:
         try:
-            fix_gemini_script.register()
+            fix_openai_script.register()
             print("  已注册修复脚本模块", flush=True)
         except Exception as e:
             print(f"  注册修复脚本模块时出错: {e}", flush=True)
@@ -658,7 +618,7 @@ def unregister():
     # 注销修复脚本模块
     if has_fix_script:
         try:
-            fix_gemini_script.unregister()
+            fix_openai_script.unregister()
             print("  已注销修复脚本模块", flush=True)
         except Exception as e:
             print(f"  注销修复脚本模块时出错: {e}", flush=True)

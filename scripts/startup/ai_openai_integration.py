@@ -1,17 +1,20 @@
-import os
-from openai import OpenAI
+"""
+Blender OpenAI Integration - 延迟初始化，安全用于 Blender 插件。
+"""
 
-token = os.environ.get("GITHUB_TOKEN", "")
-endpoint = os.environ.get("OPENAI_API_BASE", "https://models.github.ai/inference")
-model = os.environ.get("OPENAI_MODEL", "openai/gpt-4.1")
+CODE_SAVE_DIR = ""
 
-client = OpenAI(
-    base_url=endpoint,
-    api_key=token,
-)
-
+def get_openai_client():
+    import os
+    from openai import OpenAI
+    token = os.environ.get("GITHUB_TOKEN", "")
+    endpoint = os.environ.get("OPENAI_API_BASE", "https://models.github.ai/inference")
+    model = os.environ.get("OPENAI_MODEL", "openai/gpt-4.1")
+    client = OpenAI(base_url=endpoint, api_key=token)
+    return client, model, token
 
 def generate_blender_code(prompt_text):
+    client, model, token = get_openai_client()
     if not token:
         return False, "未配置 GITHUB_TOKEN 环境变量，无法访问 OpenAI API。"
     system_prompt = (
@@ -50,8 +53,8 @@ def generate_blender_code(prompt_text):
     except Exception as e:
         return False, f"OpenAI API 调用失败: {e}"
 
-
 def evaluate_and_fix_code(code, error_message):
+    client, model, token = get_openai_client()
     if not token:
         return False, "未配置 GITHUB_TOKEN 环境变量，无法访问 OpenAI API。"
     system_prompt = (
@@ -64,6 +67,7 @@ def evaluate_and_fix_code(code, error_message):
         "- 参考API文档: https://docs.blender.org/api/current/\n"
         "- 只返回Python代码，不要包含解释或注释，代码可直接运行。"
     )
+    # 其余与多轮反思、fix_openai_script相关的遗留内容已清理，仅保留必要的代码修复功能。
     user_prompt = f"错误信息：\n{error_message}\n当前代码：\n```python\n{code}\n```"
     try:
         response = client.chat.completions.create(
@@ -78,12 +82,9 @@ def evaluate_and_fix_code(code, error_message):
     except Exception as e:
         return False, f"OpenAI API 调用失败: {e}"
 
-
-CODE_SAVE_DIR = ""
-
-
 def set_code_save_directory(directory):
     global CODE_SAVE_DIR
+    import os
     if not isinstance(directory, str):
         print(f"[OpenAI] 设置代码保存目录失败: 提供的路径不是字符串 ('{directory}')")
         return False
@@ -109,24 +110,28 @@ def set_code_save_directory(directory):
         print(f"[OpenAI] 设置代码保存目录时发生未知错误: {str(e)}")
         return False
 
-
 def get_code_save_directory():
-    import bpy
-
-    if CODE_SAVE_DIR:
-        return os.path.abspath(CODE_SAVE_DIR)
-    else:
-        if bpy.data.filepath:
-            return os.path.abspath(os.path.dirname(bpy.data.filepath))
+    import os
+    try:
+        import bpy
+        if CODE_SAVE_DIR:
+            return os.path.abspath(CODE_SAVE_DIR)
         else:
-            return os.path.abspath(os.getcwd())
-
+            if bpy.data.filepath:
+                return os.path.abspath(os.path.dirname(bpy.data.filepath))
+            else:
+                return os.path.abspath(os.getcwd())
+    except Exception:
+        return os.getcwd()
 
 def execute_blender_code(code: str):
     import sys
     import traceback
-    import bpy
-
+    try:
+        import bpy
+    except Exception:
+        print("[OpenAI Code Execution] 无法导入 bpy，跳过执行。", flush=True)
+        return False, "无法导入 bpy，无法执行代码。"
     print("\n--- [OpenAI Code Execution] ---")
     print("准备执行以下代码:")
     print("-" * 20)

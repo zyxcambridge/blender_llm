@@ -15,15 +15,15 @@ agent 评估反思
 
 
 agent 评估反思 旁边加一个按钮，反思次数，默认是5次，用户可以修改；
-Gemini 请求次数限制已从100调整为5，或用户自定义值。
+openai 请求次数限制已从100调整为5，或用户自定义值。
 - 在“Agent 评估反思”按钮旁边新增了“反思次数”输入框，允许用户动态修改反思/请求次数，默认值为5。
-gemini 请求次数达到5次或者 用户设定次数，就停止；现在好像是100次；只需要把100变成5就行
+openai 请求次数达到5次或者 用户设定次数，就停止；现在好像是100次；只需要把100变成5就行
 
 反思的过程中，允许用户继续在输入框里输入新的要求，发送给genimi之前，会读取这个需求，对上一次生成的模型的脚本进行修改
 
 
 
-把历史记录保存起来，每次的修改diff，一起送给gemini，保证gemini最后生成完整的模型
+把历史记录保存起来，每次的修改diff，一起送给openai，保证openai最后生成完整的模型
 
 
 扩展功能：现在生成默认输入框里的人物，比较好，但是，用户自己输入新的要求，鼻炎洗鼻器后，3d建模就只有一个立方体；
@@ -37,14 +37,14 @@ gemini 请求次数达到5次或者 用户设定次数，就停止；现在好�
 
 
 ￼ agent 反思这个按钮原来存在，现在怎么没了，要保留，只是把底层的 多次验证，从geinimi 换成 openai 修改fix_openai_script 代码的方法是，每次把代码请求 openai ，
-gemini 要检查，现在的各个组件，是否满足系统论，控制论，信息论，链接是否正常，
+openai 要检查，现在的各个组件，是否满足系统论，控制论，信息论，链接是否正常，
 力学是否满足，
 如果有错误，就告诉 openai 错误信息，
 openai 告诉你错误，你再针对性的修改，直到 openai 不再报错，然后执行脚本。
 
 
-修改fix_gemini_script 代码的方法是，每次把代码请求 genimi ，
-gemini 要检查，现在的各个组件，是否满足系统论，控制论，信息论，链接是否正常，
+修改fix_openai_script 代码的方法是，每次把代码请求 genimi ，
+openai 要检查，现在的各个组件，是否满足系统论，控制论，信息论，链接是否正常，
 力学是否满足，
 如果有错误，就告诉 genimi 错误信息，
 genimi告诉你错误，你再针对性的修改，直到genimi 不再报错，然后执行脚本。
@@ -66,10 +66,10 @@ genimi告诉你错误，你再针对性的修改，直到genimi 不再报错，�
 
 
 
-ai_gemini_integration.py  generate_blender_code 生成的代码有错，保存为 固定的文件名字；打印 这个文件里的内容；
+ai_openai_integration.py  generate_blender_code 生成的代码有错，保存为 固定的文件名字；打印 这个文件里的内容；
 
 
-点击 Blender AI助手 增加一个按钮 ，用户执行这个按钮，ai_gemini_integration.py  generate_blender_code 生成的代码有错，保存为 固定的文件名字；
+点击 Blender AI助手 增加一个按钮 ，用户执行这个按钮，ai_openai_integration.py  generate_blender_code 生成的代码有错，保存为 固定的文件名字；
 就会执行这固定的文件名字；
 
 
@@ -177,7 +177,7 @@ Blender AI助手 按钮 ，打开程序时，就一直显示在哪里，点击�
 # 通用 Blender Python API 任意 3D 模型生成 Prompt（含几何与力学分析）
 
 ## 目标
-根据用户在文本框输入的任意 3D 模型需求，使用 Google Gemini API 生成 Blender Python API 代码，创建满足多学科约束（物理、生物、化学、政治、经济、文化、系统学）的 3D 模型，适合 3D 打印，部件间正确连接。代码需包含几何分析（壁厚、悬空角度、部件连接）和力学分析（重心、应力分布），可在 Blender 中直接执行，生成完整模型。
+根据用户在文本框输入的任意 3D 模型需求，使用 Google openai API 生成 Blender Python API 代码，创建满足多学科约束（物理、生物、化学、政治、经济、文化、系统学）的 3D 模型，适合 3D 打印，部件间正确连接。代码需包含几何分析（壁厚、悬空角度、部件连接）和力学分析（重心、应力分布），可在 Blender 中直接执行，生成完整模型。
 
 ## 输入
 - **用户输入**：文本框中的自然语言描述，说明所需的 3D 模型嗯。
@@ -189,9 +189,9 @@ Blender AI助手 按钮 ，打开程序时，就一直显示在哪里，点击�
   - 文化偏好（例如：“中国市场，偏好红色”）。
 
 ## 要求
-1. **触发机制**：用户点击“发送”按钮后，读取文本框输入，使用 Google Gemini API（API 密钥：`AIzaSyC5zCgXXwCNbUR_phRtmciRSBrCcDqg`）生成 Blender Python 代码。
+1. **触发机制**：用户点击“发送”按钮后，读取文本框输入，使用 Google openai API（API 密钥：`AIzaSyC5zCgXXwCNbUR_phRtmciRSBrCcDqg`）生成 Blender Python 代码。
 2. **API 集成**：
-   - 使用 `gemini-2.0-flash` 模型，通过 `client.models.generate_content` 调用。
+   - 使用 `openai-2.0-flash` 模型，通过 `client.models.generate_content` 调用。
    - 将用户输入和约束条件传入 Prompt，生成代码。
 3. **代码功能**：
    - 根据用户需求动态创建模型部件。
@@ -305,7 +305,7 @@ Blender AI助手 按钮 ，打开程序时，就一直显示在哪里，点击�
 - 若需求复杂（例如：多关节系统），生成模块化代码，逐一验证。
 - 几何分析（壁厚、悬空）需精确网格分析，复杂模型可能需性能优化。
 - 力学分析为简化模拟，高级仿真（如有限元分析）需外部工具。
-- 确保 Gemini API 密钥有效。
+- 确保 openai API 密钥有效。
 - 若需生成渲染图像（例如：模型预览），需用户确认后使用 `bpy.ops.render`。
 - 若需可视化力学分析（例如：重心分布图），需用户确认后使用 Canvas 面板生成图表。
 
@@ -314,7 +314,7 @@ Blender AI助手 按钮 ，打开程序时，就一直显示在哪里，点击�
 
 
 实现逻辑改一下：
-用户在点击发送按钮后，读取 文本框的需求文字，使用大模型 google gemini 
+用户在点击发送按钮后，读取 文本框的需求文字，使用大模型 google openai 
 api key = AIzaSyC5zCgXXwCNbUmbQR_phRtmciRSBrCcDqg
 
 prompt ： 读取 文本框的需求：根据 blender python API的格式，生成对应的blender python代码；
@@ -328,7 +328,7 @@ prompt ： 读取 文本框的需求：根据 blender python API的格式，生�
 client = genai.Client(api_key="YOUR_API_KEY")
 
 response = client.models.generate_content(
-    model="gemini-2.0-flash",
+    model="openai-2.0-flash",
     contents="读取 文本框的需求：根据 blender python API的需求，生成对应的blender python代码",
 )
 
