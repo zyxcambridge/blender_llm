@@ -255,8 +255,23 @@ class AI_OT_send_message(bpy.types.Operator):
 
             import ai_openai_integration
 
-            print(f"\n==== Calling openai: {user_input} ====", flush=True)
-            success, result = ai_openai_integration.generate_blender_code(user_input)
+            # ==== 新增：增量优化功能 ====
+            save_dir = ai_openai_integration.get_code_save_directory()
+            script_path = os.path.join(save_dir, SCRIPT_FILENAME)
+            last_code = None
+            if os.path.exists(script_path):
+                with open(script_path, 'r', encoding='utf-8') as f:
+                    last_code = f.read()
+
+            if last_code and last_code.strip():
+                # 第二次及以后点击，合并历史代码与新需求
+                prompt = f"用户新需求：\n{user_input}\n\n上一次生成的脚本如下：\n```python\n{last_code}\n```\n请根据新需求优化/修改上述脚本，仅返回完整可运行的最终代码。"
+            else:
+                # 第一次点击，普通生成
+                prompt = user_input
+
+            print(f"\n==== Calling openai: {prompt} ====", flush=True)
+            success, result = ai_openai_integration.generate_blender_code(prompt)
             openai_success = success
             openai_result = result
 
@@ -267,8 +282,8 @@ class AI_OT_send_message(bpy.types.Operator):
                 display_code = "\n".join(code_snippet[:8]) + ("\n..." if len(code_snippet) > 8 else "")
                 ai_response_text = f"✅ 代码已生成:\n```python\n{display_code}\n```\n"
 
-                save_dir = ai_openai_integration.get_code_save_directory()
-                script_path = os.path.join(save_dir, SCRIPT_FILENAME)
+                with open(script_path, 'w', encoding='utf-8') as f:
+                    f.write(generated_code)
                 try:
                     os.makedirs(save_dir, exist_ok=True)
                     with open(script_path, 'w', encoding='utf-8') as f:

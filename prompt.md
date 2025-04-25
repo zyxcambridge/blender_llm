@@ -10,6 +10,8 @@ make lite -j16 &&/Users/yixin0909zhang/blender-git/build_darwin_lite/bin/Blender
 
 用户一进入blender后，场景有默认的cube ，给我删掉；
 
+第一次点击：仅用输入框内容生成脚本。• 第二次及以后点击：会自动读取输入框的新内容，并读取上一次生成的脚本，将二者合并为 prompt，发送给 OpenAI，让其基于“上一次脚本+新需求”进行优化或增量修改，只返回完整可运行的新脚本。
+
 
 agent 评估反思
 
