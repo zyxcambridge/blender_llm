@@ -29,7 +29,6 @@ def main():
     ear_L = bpy.context.active_object
     ear_L.name = character_name + "_Ear_L"
     objs.append(ear_L)
-    # 外耳材质
     ear_L.data.materials.append(mat_head)
 
     # 内耳（粉色）
@@ -57,21 +56,38 @@ def main():
     inner_ear_R.data.materials.append(mat_inner_ear)
     objs.append(inner_ear_R)
 
-    # 眼睛（球体，黑色，带高光）
-    log("创建左眼睛")
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.13, location=(-0.32, 0.85, 2.8))
+    # 眼睛（大眼睛，球体，黑色，带高光）
+    log("创建大左眼睛")
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.23, location=(-0.32, 0.93, 2.85), scale=(1.1, 1.1, 1.1))
     eye_L = bpy.context.active_object
     eye_L.name = character_name + "_Eye_L"
     objs.append(eye_L)
     mat_eye = bpy.data.materials.new(name="Eye_Mat")
     mat_eye.use_nodes = True
     bsdf_eye = mat_eye.node_tree.nodes.get("Principled BSDF")
-    bsdf_eye.inputs["Base Color"].default_value = (0.1, 0.1, 0.1, 1)
-    bsdf_eye.inputs["Roughness"].default_value = 0.2
+    bsdf_eye.inputs["Base Color"].default_value = (0.08, 0.08, 0.08, 1)
+    bsdf_eye.inputs["Roughness"].default_value = 0.18
     eye_L.data.materials.append(mat_eye)
 
+    # 眼白（大球体，白色，包裹黑色球体）
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.25, location=(-0.32, 0.93, 2.85), scale=(1.1, 1.1, 1.1))
+    eye_L_white = bpy.context.active_object
+    eye_L_white.name = character_name + "_Eye_L_White"
+    mat_eye_white = bpy.data.materials.new(name="Eye_White_Mat")
+    mat_eye_white.use_nodes = True
+    bsdf_eye_white = mat_eye_white.node_tree.nodes.get("Principled BSDF")
+    bsdf_eye_white.inputs["Base Color"].default_value = (1, 1, 1, 1)
+    bsdf_eye_white.inputs["Roughness"].default_value = 0.25
+    eye_L_white.data.materials.append(mat_eye_white)
+    objs.append(eye_L_white)
+    # 眼白在后，黑色球体在前
+    eye_L.select_set(True)
+    eye_L_white.select_set(True)
+    bpy.context.view_layer.objects.active = eye_L
+    bpy.ops.object.move_to_collection(collection_index=0)  # 保证都在同一集合
+
     # 眼睛高光
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.035, location=(-0.36, 0.93, 2.86))
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.05, location=(-0.39, 1.01, 2.96))
     eye_L_highlight = bpy.context.active_object
     eye_L_highlight.name = character_name + "_Eye_L_Highlight"
     mat_eye_highlight = bpy.data.materials.new(name="Eye_Highlight_Mat")
@@ -82,14 +98,24 @@ def main():
     eye_L_highlight.data.materials.append(mat_eye_highlight)
     objs.append(eye_L_highlight)
 
-    log("创建右眼睛")
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.13, location=(0.32, 0.85, 2.8))
+    log("创建大右眼睛")
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.23, location=(0.32, 0.93, 2.85), scale=(1.1, 1.1, 1.1))
     eye_R = bpy.context.active_object
     eye_R.name = character_name + "_Eye_R"
     objs.append(eye_R)
     eye_R.data.materials.append(mat_eye)
 
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.035, location=(0.36, 0.93, 2.86))
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.25, location=(0.32, 0.93, 2.85), scale=(1.1, 1.1, 1.1))
+    eye_R_white = bpy.context.active_object
+    eye_R_white.name = character_name + "_Eye_R_White"
+    eye_R_white.data.materials.append(mat_eye_white)
+    objs.append(eye_R_white)
+    eye_R.select_set(True)
+    eye_R_white.select_set(True)
+    bpy.context.view_layer.objects.active = eye_R
+    bpy.ops.object.move_to_collection(collection_index=0)
+
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.05, location=(0.39, 1.01, 2.96))
     eye_R_highlight = bpy.context.active_object
     eye_R_highlight.name = character_name + "_Eye_R_Highlight"
     eye_R_highlight.data.materials.append(mat_eye_highlight)
