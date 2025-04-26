@@ -255,6 +255,8 @@ class AI_OT_send_message(bpy.types.Operator):
 
             import ai_openai_integration
 
+            use_openai = True
+
             # ==== 新增：增量优化功能 ====
             save_dir = ai_openai_integration.get_code_save_directory()
             script_path = os.path.join(save_dir, SCRIPT_FILENAME)
