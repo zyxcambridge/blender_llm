@@ -66,6 +66,11 @@ def generate_blender_code(prompt_text, image_file="0g.jpg"):
         "- 只返回Python代码，不要包含解释或注释，代码可直接运行。\n"
         "9. 每次通过 nodes.get('Principled BSDF') 获取节点后，必须判断是否为 None。如果为 None，需自动 nodes.new(type='ShaderNodeBsdfPrincipled') 并设置 location，确保后续 .inputs[...] 操作不出错。\n"
         "10. 任何材质节点操作都必须保证节点存在，绝不能假定 nodes.get(...) 一定返回非 None。"
+        "11. 禁止使用 bpy.app.timers.register 或类似定时器/异步方式生成模型，建模函数必须直接同步执行，确保 exec(code) 后模型已生成。"
+        "12. 必须为所有主要模型对象设置材质和颜色，禁止无材质/无颜色输出。"
+        "13. 必须为场景添加至少一个主光源（如SUN），并设置合适能量和颜色，禁止无光照。"
+        "14. 必须保证生成的模型完整且对称，不能只生成一半身体。"
+
     )
 
     try:
@@ -199,17 +204,134 @@ def execute_blender_code(code: str):
     if not code or not code.strip():
         print("[OpenAI Code Execution] 接收到空代码，跳过执行。", flush=True)
         return True, "无代码执行。"
+    # 设置渲染引擎为 CYCLES（优先）或 EEVEE
+    scene = bpy.context.scene
+    if hasattr(scene.render, 'engine'):
+        try:
+            scene.render.engine = 'CYCLES'
+            print("[OpenAI Code Execution] 渲染引擎设置为 CYCLES", flush=True)
+        except Exception:
+            scene.render.engine = 'BLENDER_EEVEE'
+            print("[OpenAI Code Execution] 渲染引擎设置为 EEVEE", flush=True)
+    # 尝试启用 GPU 渲染
+    prefs = bpy.context.preferences
+    if hasattr(prefs, 'addons') and 'cycles' in prefs.addons:
+        cycles_prefs = prefs.addons['cycles'].preferences
+        if hasattr(cycles_prefs, 'compute_device_type'):
+            cycles_prefs.compute_device_type = 'CUDA' if 'CUDA' in cycles_prefs.devices else 'NONE'
+            scene.cycles.device = 'GPU' if cycles_prefs.compute_device_type != 'NONE' else 'CPU'
+            print(f"[OpenAI Code Execution] Cycles 设备: {scene.cycles.device}", flush=True)
+
+    # 设置世界背景色为明亮灰色，避免黑屏
+    if scene.world is not None:
+        scene.world.use_nodes = True
+        bg = scene.world.node_tree.nodes.get('Background')
+        if bg:
+            bg.inputs[0].default_value = (0.8, 0.8, 0.8, 1)
+            bg.inputs[1].default_value = 1.0
+        print("[OpenAI Code Execution] 世界背景色已设置为亮灰色", flush=True)
+
+    # 清除默认Cube
     if "Cube" in bpy.data.objects:
         try:
             bpy.data.objects.remove(bpy.data.objects["Cube"], do_unlink=True)
             print("[OpenAI Code Execution] 默认立方体已删除", flush=True)
         except Exception as e:
             print(f"[OpenAI Code Execution] 删除默认立方体失败: {e}", flush=True)
+    # 清除所有摄像机和灯光，避免干扰
+    for obj in list(bpy.data.objects):
+        if obj.type in {"CAMERA", "LIGHT"}:
+            bpy.data.objects.remove(obj, do_unlink=True)
+    print("[OpenAI Code Execution] 已清除所有摄像机和灯光", flush=True)
+
+    # 自动添加主摄像机并正对模型整体中心
+    import mathutils
+    mesh_objs = [obj for obj in bpy.data.objects if obj.type == "MESH"]
+    if mesh_objs:
+        # 计算所有 mesh 的包围盒中心和高度
+        min_z = min([obj.matrix_world @ mathutils.Vector([v[0], v[1], v[2]]) for obj in mesh_objs for v in obj.bound_box], key=lambda v: v.z).z
+        max_z = max([obj.matrix_world @ mathutils.Vector([v[0], v[1], v[2]]) for obj in mesh_objs for v in obj.bound_box], key=lambda v: v.z).z
+        center = sum((obj.location for obj in mesh_objs), mathutils.Vector((0,0,0))) / len(mesh_objs)
+        model_height = max_z - min_z
+        cam_dist = max(4, model_height * 2)
+        cam_z = max_z - model_height/2 + 0.5
+        cam = bpy.data.cameras.new("AIAgent_Camera")
+        cam_obj = bpy.data.objects.new("AIAgent_Camera", cam)
+        bpy.context.collection.objects.link(cam_obj)
+        cam_obj.location = (center.x, center.y - cam_dist, cam_z)
+        direction = mathutils.Vector((center.x, center.y, cam_z)) - cam_obj.location
+        cam_obj.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
+        bpy.context.scene.camera = cam_obj
+        print(f"[OpenAI Code Execution] 已自动对齐主摄像机，center=({center.x:.2f},{center.y:.2f},{cam_z:.2f}), dist={cam_dist:.2f}", flush=True)
+    else:
+        cam = bpy.data.cameras.new("AIAgent_Camera")
+        cam_obj = bpy.data.objects.new("AIAgent_Camera", cam)
+        bpy.context.collection.objects.link(cam_obj)
+        cam_obj.location = (0, -8, 2.5)
+        cam_obj.rotation_euler = (1.2, 0, 0)
+        bpy.context.scene.camera = cam_obj
+        print("[OpenAI Code Execution] 已添加主摄像机", flush=True)
+
+    # 自动添加主光源（太阳灯），放到模型正上方，并提高能量
+    sun_data = bpy.data.lights.new(name="AIAgent_Sun", type='SUN')
+    sun_data.energy = 15.0
+    sun_data.color = (1.0, 0.95, 0.85)
+    sun_obj = bpy.data.objects.new(name="AIAgent_Sun", object_data=sun_data)
+    bpy.context.collection.objects.link(sun_obj)
+    # 放到模型正上方
+    if mesh_objs:
+        min_z = min([obj.matrix_world @ mathutils.Vector([v[0], v[1], v[2]]) for obj in mesh_objs for v in obj.bound_box], key=lambda v: v.z).z
+        max_z = max([obj.matrix_world @ mathutils.Vector([v[0], v[1], v[2]]) for obj in mesh_objs for v in obj.bound_box], key=lambda v: v.z).z
+        center = sum((obj.location for obj in mesh_objs), mathutils.Vector((0,0,0))) / len(mesh_objs)
+        sun_obj.location = (center.x, center.y, max_z + 3)
+    else:
+        sun_obj.location = (0, 0, 8)
+    print(f"[OpenAI Code Execution] 已添加主光源，位置: {sun_obj.location}, 能量: {sun_data.energy}", flush=True)
+    # 增加一个辅助点光源，放在模型正前方稍偏上
+    if mesh_objs:
+        point_data = bpy.data.lights.new(name="AIAgent_Fill", type='POINT')
+        point_data.energy = 8.0
+        point_data.color = (1.0, 1.0, 1.0)
+        point_obj = bpy.data.objects.new(name="AIAgent_Fill", object_data=point_data)
+        bpy.context.collection.objects.link(point_obj)
+        point_obj.location = (center.x, center.y - (model_height if 'model_height' in locals() else 4), max_z - model_height/3 + 1.0)
+        print(f"[OpenAI Code Execution] 已添加辅助点光源，位置: {point_obj.location}, 能量: {point_data.energy}", flush=True)
+
+    # 设置渲染分辨率
+    bpy.context.scene.render.resolution_x = 1920
+    bpy.context.scene.render.resolution_y = 1080
+    bpy.context.scene.render.resolution_percentage = 100
+    print("[OpenAI Code Execution] 渲染分辨率设置为1920x1080", flush=True)
+
     try:
         exec(code, globals())
+        # 检查场景中是否有 MESH 对象，无则循环等待（最多2秒）
+        import time
+        for _ in range(10):
+            mesh_objs = [obj for obj in bpy.data.objects if obj.type == "MESH"]
+            if mesh_objs:
+                break
+            time.sleep(0.2)
+        else:
+            print("[OpenAI Code Execution] 警告：未检测到任何模型对象，渲染可能为空白！", flush=True)
+        # 检查主要 mesh 是否有材质和颜色
+        mesh_objs = [obj for obj in bpy.data.objects if obj.type == "MESH"]
+        no_mat = [obj.name for obj in mesh_objs if not obj.data.materials or not any(mat and mat.use_nodes for mat in obj.data.materials)]
+        if no_mat:
+            print(f"[OpenAI Code Execution] 警告：以下模型未设置材质或颜色，渲染可能无色: {no_mat}", flush=True)
+        # 粗略检测模型是否对称（按名称/数量）
+        left = [obj for obj in mesh_objs if "L" in obj.name or "Left" in obj.name or "_L" in obj.name]
+        right = [obj for obj in mesh_objs if "R" in obj.name or "Right" in obj.name or "_R" in obj.name]
+        if abs(len(left) - len(right)) > 1:
+            print(f"[OpenAI Code Execution] 警告：模型左右部件数量不对称，可能只生成了一半身体！", flush=True)
         success = True
         result_message = "脚本执行成功完成。"
         print(f"[OpenAI Code Execution] {result_message}", flush=True)
+    except IndentationError as e:
+        success = False
+        error_traceback = traceback.format_exc()
+        result_message = f"❌ 脚本缩进错误: {e}\n请检查 AI 生成的代码缩进，尤其是 if/else 被注释后是否有多余缩进。\n详细信息:\n{error_traceback}"
+        print(result_message, flush=True)
     except Exception as e:
         success = False
         error_traceback = traceback.format_exc()
@@ -218,4 +340,14 @@ def execute_blender_code(code: str):
         print(error_traceback, flush=True)
     finally:
         print("--- [OpenAI Code Execution End] ---", flush=True)
+    # 渲染当前视图并保存到当前路径下的 render.png
+    try:
+        import os
+        output_path = os.path.join(os.getcwd(), "render.png")
+        bpy.context.scene.render.filepath = output_path
+        bpy.context.scene.render.image_settings.file_format = 'PNG'
+        bpy.ops.render.render(write_still=True)
+        print(f"[OpenAI Code Execution] 渲染图片已保存到: {output_path}", flush=True)
+    except Exception as e:
+        print(f"[OpenAI Code Execution] 渲染图片失败: {e}", flush=True)
     return success, result_message

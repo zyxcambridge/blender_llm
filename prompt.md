@@ -1,6 +1,4 @@
-阶段 1：规则映射（1 个月）：
-实现简单的指令到脚本映射，例如：• 指令“创建一个立方体” → bpy.ops.mesh.primitive_cube_add()。
-• 使用 Python 字典或简单脚本存储映射关系。
+
 
 make -j16 && /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Contents/MacOS/Blender
 
@@ -8,7 +6,12 @@ make lite -j16 &&/Users/yixin0909zhang/blender-git/build_darwin_lite/bin/Blender
 
 /Users/yixin0909zhang/blender-git/build_darwin/bin/Blender.app/Contents/MacOS/Blender
 
-用户一进入blender后，场景有默认的cube ，给我删掉；
+openai_latest_code 是由ai_openai_integration.py 生成的代码；
+所以你修改openai_latest_code，不能一直起作用，你应该修改ai_openai_integration.py
+
+
+
+用户一进入blender后，场景有默认的cube以及所有的默认的组件，给我删掉；
 
 第一次点击：仅用输入框内容生成脚本。• 第二次及以后点击：会自动读取输入框的新内容，并读取上一次生成的脚本，将二者合并为 prompt，发送给 OpenAI，让其基于“上一次脚本+新需求”进行优化或增量修改，只返回完整可运行的新脚本。
 

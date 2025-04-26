@@ -1,5 +1,4 @@
 import bpy
-import math
 
 角色名 = "卡通角色"
 
@@ -7,12 +6,11 @@ def log(msg):
     print(f"[LOG] {msg}")
 
 def create_cartoon_character():
-    bpy.ops.object.select_all(action='DESELECT')
     log(f"开始创建卡通角色：{角色名}")
     objs = []
 
     # 头部：球体
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=1.0, location=(0, 0, 2.5), segments=48, ring_count=32)
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.7, location=(0, 0, 2.5), segments=48, ring_count=32)
     head = bpy.context.active_object
     head.name = "Character_Head"
     mat_head = bpy.data.materials.new(name="Head_Mat")
@@ -28,9 +26,9 @@ def create_cartoon_character():
     log("头部完成")
 
     # 耳朵：两个小球体
-    ear_offset_x = 0.8
-    ear_offset_z = 3.5
-    ear_radius = 0.35
+    ear_offset_x = 0.6
+    ear_offset_z = 3.2
+    ear_radius = 0.25
     for i, sign in enumerate([-1, 1]):
         bpy.ops.mesh.primitive_uv_sphere_add(radius=ear_radius, location=(sign * ear_offset_x, 0, ear_offset_z), segments=32, ring_count=16)
         ear = bpy.context.active_object
@@ -48,10 +46,10 @@ def create_cartoon_character():
     log("耳朵完成")
 
     # 眼睛：两个球体
-    eye_offset_x = 0.38
-    eye_offset_z = 2.7
-    eye_offset_y = 0.85
-    eye_radius = 0.16
+    eye_offset_x = 0.3
+    eye_offset_z = 2.6
+    eye_offset_y = 0.7
+    eye_radius = 0.12
     for i, sign in enumerate([-1, 1]):
         bpy.ops.mesh.primitive_uv_sphere_add(radius=eye_radius, location=(sign * eye_offset_x, eye_offset_y, eye_offset_z), segments=24, ring_count=12)
         eye = bpy.context.active_object
@@ -69,7 +67,7 @@ def create_cartoon_character():
     log("眼睛完成")
 
     # 嘴巴：甜甜圈
-    bpy.ops.mesh.primitive_torus_add(location=(0, 1.0, 2.2), major_radius=0.18, minor_radius=0.07, major_segments=32, minor_segments=16)
+    bpy.ops.mesh.primitive_torus_add(location=(0, 1.0, 2.2), major_radius=0.15, minor_radius=0.05, major_segments=32, minor_segments=16)
     mouth = bpy.context.active_object
     mouth.name = "Character_Mouth"
     mat_mouth = bpy.data.materials.new(name="Mouth_Mat")
@@ -84,7 +82,7 @@ def create_cartoon_character():
     objs.append(mouth)
     log("嘴巴完成")
 
-    # 身体：椭球体（球体缩放）
+    # 身体：椭球体
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.85, location=(0, 0, 1.1), segments=48, ring_count=32)
     body = bpy.context.active_object
     body.name = "Character_Body"
@@ -107,13 +105,10 @@ def create_cartoon_character():
     arm_radius = 0.13
     arm_offset_x = 0.95
     arm_offset_z = 1.5
-    arm_offset_y = 0.0
     for i, sign in enumerate([-1, 1]):
-        bpy.ops.mesh.primitive_cylinder_add(radius=arm_radius, depth=arm_length, location=(sign * arm_offset_x, arm_offset_y, arm_offset_z))
+        bpy.ops.mesh.primitive_cylinder_add(radius=arm_radius, depth=arm_length, location=(sign * arm_offset_x, 0, arm_offset_z))
         arm = bpy.context.active_object
         arm.name = f"Character_Arm_{i+1}"
-        # 旋转手臂自然下垂
-        arm.rotation_euler[1] = math.radians(25)
         mat_arm = bpy.data.materials.new(name=f"Arm_Mat_{i+1}")
         mat_arm.use_nodes = True
         bsdf_arm = mat_arm.node_tree.nodes.get("Principled BSDF")
@@ -135,8 +130,6 @@ def create_cartoon_character():
         bpy.ops.mesh.primitive_cylinder_add(radius=leg_radius, depth=leg_length, location=(sign * leg_offset_x, 0, leg_offset_z))
         leg = bpy.context.active_object
         leg.name = f"Character_Leg_{i+1}"
-        # 旋转腿部自然
-        leg.rotation_euler[0] = math.radians(90)
         mat_leg = bpy.data.materials.new(name=f"Leg_Mat_{i+1}")
         mat_leg.use_nodes = True
         bsdf_leg = mat_leg.node_tree.nodes.get("Principled BSDF")
@@ -149,8 +142,8 @@ def create_cartoon_character():
         objs.append(leg)
     log("腿部完成")
 
-    # 配件1：头盔（缩放后的球体）
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=1.2, location=(0, 0, 2.5), segments=48, ring_count=32)
+    # 配件：头盔
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=1.0, location=(0, 0, 2.5), segments=48, ring_count=32)
     helmet = bpy.context.active_object
     helmet.name = "Character_Helmet"
     helmet.scale[2] = 1.1
@@ -166,17 +159,20 @@ def create_cartoon_character():
     objs.append(helmet)
     log("头盔完成")
 
-    # 合并所有部件
+    # 合并所有对象
     bpy.ops.object.select_all(action='DESELECT')
     for obj in objs:
         obj.select_set(True)
     bpy.context.view_layer.objects.active = head
     bpy.ops.object.join()
-    merged = bpy.context.active_object
-    merged.name = 角色名
-    log(f"卡通角色「{角色名}」创建完成并已展示")
+    bpy.context.active_object.name = 角色名
+    log(f"卡通角色 {角色名} 创建完成")
 
-def main():
-    create_cartoon_character()
+    # 添加光源
+    bpy.ops.object.light_add(type='SUN', location=(5, 5, 10))
+    sun = bpy.context.active_object
+    sun.data.energy = 5
+    sun.data.color = (1, 1, 1)
+    log("光源添加完成")
 
-bpy.app.timers.register(main)
+create_cartoon_character()
