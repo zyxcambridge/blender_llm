@@ -11,7 +11,10 @@ def get_openai_client():
     import os
     from openai import OpenAI
 
-    token = os.environ.get("GITHUB_TOKEN", "")
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        raise RuntimeError("未检测到 GITHUB_TOKEN 环境变量，请在系统环境变量中设置你的 OpenAI/GitHub Token，或在 Blender 启动前导出变量。例如：export GITHUB_TOKEN=your_token")
+
     endpoint = os.environ.get("OPENAI_API_BASE", "https://models.github.ai/inference")
     # model = os.environ.get("OPENAI_MODEL", "openai/gpt-4.1")
     # model = os.environ.get("OPENAI_MODEL", "openai/gpt-4.1-mini")
@@ -70,7 +73,6 @@ def generate_blender_code(prompt_text, image_file="0g.jpg"):
         "12. 必须为所有主要模型对象设置材质和颜色，禁止无材质/无颜色输出。"
         "13. 必须为场景添加至少一个主光源（如SUN），并设置合适能量和颜色，禁止无光照。"
         "14. 必须保证生成的模型完整且对称，不能只生成一半身体。"
-
     )
 
     try:
@@ -246,15 +248,22 @@ def execute_blender_code(code: str):
 
     # 自动添加主摄像机并正对模型整体中心
     import mathutils
+
     mesh_objs = [obj for obj in bpy.data.objects if obj.type == "MESH"]
     if mesh_objs:
         # 计算所有 mesh 的包围盒中心和高度
-        min_z = min([obj.matrix_world @ mathutils.Vector([v[0], v[1], v[2]]) for obj in mesh_objs for v in obj.bound_box], key=lambda v: v.z).z
-        max_z = max([obj.matrix_world @ mathutils.Vector([v[0], v[1], v[2]]) for obj in mesh_objs for v in obj.bound_box], key=lambda v: v.z).z
-        center = sum((obj.location for obj in mesh_objs), mathutils.Vector((0,0,0))) / len(mesh_objs)
+        min_z = min(
+            [obj.matrix_world @ mathutils.Vector([v[0], v[1], v[2]]) for obj in mesh_objs for v in obj.bound_box],
+            key=lambda v: v.z,
+        ).z
+        max_z = max(
+            [obj.matrix_world @ mathutils.Vector([v[0], v[1], v[2]]) for obj in mesh_objs for v in obj.bound_box],
+            key=lambda v: v.z,
+        ).z
+        center = sum((obj.location for obj in mesh_objs), mathutils.Vector((0, 0, 0))) / len(mesh_objs)
         model_height = max_z - min_z
         cam_dist = max(4, model_height * 2)
-        cam_z = max_z - model_height/2 + 0.5
+        cam_z = max_z - model_height / 2 + 0.5
         cam = bpy.data.cameras.new("AIAgent_Camera")
         cam_obj = bpy.data.objects.new("AIAgent_Camera", cam)
         bpy.context.collection.objects.link(cam_obj)
@@ -262,7 +271,10 @@ def execute_blender_code(code: str):
         direction = mathutils.Vector((center.x, center.y, cam_z)) - cam_obj.location
         cam_obj.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
         bpy.context.scene.camera = cam_obj
-        print(f"[OpenAI Code Execution] 已自动对齐主摄像机，center=({center.x:.2f},{center.y:.2f},{cam_z:.2f}), dist={cam_dist:.2f}", flush=True)
+        print(
+            f"[OpenAI Code Execution] 已自动对齐主摄像机，center=({center.x:.2f},{center.y:.2f},{cam_z:.2f}), dist={cam_dist:.2f}",
+            flush=True,
+        )
     else:
         cam = bpy.data.cameras.new("AIAgent_Camera")
         cam_obj = bpy.data.objects.new("AIAgent_Camera", cam)
@@ -280,9 +292,15 @@ def execute_blender_code(code: str):
     bpy.context.collection.objects.link(sun_obj)
     # 放到模型正上方
     if mesh_objs:
-        min_z = min([obj.matrix_world @ mathutils.Vector([v[0], v[1], v[2]]) for obj in mesh_objs for v in obj.bound_box], key=lambda v: v.z).z
-        max_z = max([obj.matrix_world @ mathutils.Vector([v[0], v[1], v[2]]) for obj in mesh_objs for v in obj.bound_box], key=lambda v: v.z).z
-        center = sum((obj.location for obj in mesh_objs), mathutils.Vector((0,0,0))) / len(mesh_objs)
+        min_z = min(
+            [obj.matrix_world @ mathutils.Vector([v[0], v[1], v[2]]) for obj in mesh_objs for v in obj.bound_box],
+            key=lambda v: v.z,
+        ).z
+        max_z = max(
+            [obj.matrix_world @ mathutils.Vector([v[0], v[1], v[2]]) for obj in mesh_objs for v in obj.bound_box],
+            key=lambda v: v.z,
+        ).z
+        center = sum((obj.location for obj in mesh_objs), mathutils.Vector((0, 0, 0))) / len(mesh_objs)
         sun_obj.location = (center.x, center.y, max_z + 3)
     else:
         sun_obj.location = (0, 0, 8)
@@ -294,8 +312,15 @@ def execute_blender_code(code: str):
         point_data.color = (1.0, 1.0, 1.0)
         point_obj = bpy.data.objects.new(name="AIAgent_Fill", object_data=point_data)
         bpy.context.collection.objects.link(point_obj)
-        point_obj.location = (center.x, center.y - (model_height if 'model_height' in locals() else 4), max_z - model_height/3 + 1.0)
-        print(f"[OpenAI Code Execution] 已添加辅助点光源，位置: {point_obj.location}, 能量: {point_data.energy}", flush=True)
+        point_obj.location = (
+            center.x,
+            center.y - (model_height if 'model_height' in locals() else 4),
+            max_z - model_height / 3 + 1.0,
+        )
+        print(
+            f"[OpenAI Code Execution] 已添加辅助点光源，位置: {point_obj.location}, 能量: {point_data.energy}",
+            flush=True,
+        )
 
     # 设置渲染分辨率
     bpy.context.scene.render.resolution_x = 1920
@@ -307,6 +332,7 @@ def execute_blender_code(code: str):
         exec(code, globals())
         # 检查场景中是否有 MESH 对象，无则循环等待（最多2秒）
         import time
+
         for _ in range(10):
             mesh_objs = [obj for obj in bpy.data.objects if obj.type == "MESH"]
             if mesh_objs:
@@ -316,7 +342,11 @@ def execute_blender_code(code: str):
             print("[OpenAI Code Execution] 警告：未检测到任何模型对象，渲染可能为空白！", flush=True)
         # 检查主要 mesh 是否有材质和颜色
         mesh_objs = [obj for obj in bpy.data.objects if obj.type == "MESH"]
-        no_mat = [obj.name for obj in mesh_objs if not obj.data.materials or not any(mat and mat.use_nodes for mat in obj.data.materials)]
+        no_mat = [
+            obj.name
+            for obj in mesh_objs
+            if not obj.data.materials or not any(mat and mat.use_nodes for mat in obj.data.materials)
+        ]
         if no_mat:
             print(f"[OpenAI Code Execution] 警告：以下模型未设置材质或颜色，渲染可能无色: {no_mat}", flush=True)
         # 粗略检测模型是否对称（按名称/数量）
@@ -340,14 +370,4 @@ def execute_blender_code(code: str):
         print(error_traceback, flush=True)
     finally:
         print("--- [OpenAI Code Execution End] ---", flush=True)
-    # 渲染当前视图并保存到当前路径下的 render.png
-    try:
-        import os
-        output_path = os.path.join(os.getcwd(), "render.png")
-        bpy.context.scene.render.filepath = output_path
-        bpy.context.scene.render.image_settings.file_format = 'PNG'
-        bpy.ops.render.render(write_still=True)
-        print(f"[OpenAI Code Execution] 渲染图片已保存到: {output_path}", flush=True)
-    except Exception as e:
-        print(f"[OpenAI Code Execution] 渲染图片失败: {e}", flush=True)
     return success, result_message

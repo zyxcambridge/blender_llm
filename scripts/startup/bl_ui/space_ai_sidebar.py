@@ -186,6 +186,11 @@ class VIEW3D_PT_ai_assistant(Panel):
         execute_row.scale_y = 1.5
         execute_row.operator("ai.execute_script", text="Agent 执行", icon='PLAY')
 
+        # 新增“渲染图片”按钮
+        render_row = layout.row(align=True)
+        render_row.scale_y = 1.5
+        render_row.operator("ai.render_image", text="渲染图片", icon='RENDER_STILL')
+
 
 class AI_OT_initialize(bpy.types.Operator):
     bl_idname = "ai.initialize"
@@ -459,6 +464,86 @@ class AI_OT_execute_script(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class AI_OT_render_image(bpy.types.Operator):
+    bl_idname = "ai.render_image"
+    bl_label = "渲染图片"
+    bl_description = "渲染当前场景并保存为高清图片（自动优化光照和渲染设置）"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        try:
+            import bpy
+            import os
+
+            scene = bpy.context.scene
+
+            # ----------------- 增强渲染效果 -----------------
+            # 设置Cycles渲染器
+            scene.render.engine = 'CYCLES'
+            scene.cycles.samples = 512  # 超高清采样
+            scene.cycles.use_adaptive_sampling = True  # 自适应采样
+            scene.cycles.use_denoising = True  # 启用降噪
+
+            # 设置抗锯齿（Cycles 渲染器不再需要 use_antialiasing/antialiasing_samples）
+            scene.render.use_multiview = False
+            # Cycles 不支持 use_antialiasing/antialiasing_samples，移除相关设置
+
+            # 设置渲染分辨率
+            scene.render.resolution_x = 1920
+            scene.render.resolution_y = 1080
+            scene.render.resolution_percentage = 100
+
+            # 色彩管理提升（让颜色对比更鲜明）
+            scene.view_settings.view_transform = 'Filmic'
+            scene.view_settings.look = 'High Contrast'
+
+            # 添加环境光（世界光）
+            if scene.world is None:
+                scene.world = bpy.data.worlds.new("World")
+            scene.world.use_nodes = True
+            bg = scene.world.node_tree.nodes.get('Background')
+            if bg:
+                bg.inputs[1].default_value = 1.2  # 稍微亮一点
+
+            # 添加一个柔和的主灯（太阳光）
+            if not any(obj.type == 'LIGHT' for obj in scene.objects):
+                light_data = bpy.data.lights.new(name="Key_Light", type='SUN')
+                light_object = bpy.data.objects.new(name="Key_Light", object_data=light_data)
+                scene.collection.objects.link(light_object)
+                light_object.location = (5, -5, 5)
+                light_object.rotation_euler = (0.785, 0, 0.785)  # 45度照下来
+                light_data.energy = 8.0  # 亮一些
+
+            # 设置所有光源阴影柔和
+            for obj in scene.objects:
+                if obj.type == 'LIGHT':
+                    obj.data.shadow_soft_size = 1.5
+
+            # 使用 Blender 当前工作目录保存图片（绝对路径）
+            import os
+            output_path = os.path.abspath(bpy.path.abspath('//render.png'))
+            scene.render.filepath = output_path
+            scene.render.image_settings.file_format = 'PNG'
+
+            # 开始渲染
+            bpy.ops.render.render(write_still=True)
+            print(f"[AI Render] 渲染图片已保存到: {output_path}", flush=True)
+            self.report({'INFO'}, f"渲染图片已保存到: {output_path}")
+
+            # 同步到 AI 消息区
+            if hasattr(scene, "ai_assistant"):
+                ai_props = scene.ai_assistant
+                msg = ai_props.messages.add()
+                msg.text = f"ℹ️ 渲染图片已保存到: {output_path}"
+                msg.is_user = False
+                ai_props.active_message_index = len(ai_props.messages) - 1
+
+        except Exception as e:
+            self.report({'ERROR'}, f"渲染失败: {e}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+
 class AI_OT_clear_history(bpy.types.Operator):
     bl_idname = "ai.clear_history"
     bl_label = "清除历史记录"
@@ -527,6 +612,7 @@ classes = (
     AI_OT_initialize,
     AI_OT_send_message,
     AI_OT_execute_script,
+    AI_OT_render_image,
     AI_OT_clear_history,
     VIEW3D_PT_ai_assistant,
     AI_OT_debug,
