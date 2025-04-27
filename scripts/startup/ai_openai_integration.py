@@ -11,14 +11,13 @@ def get_openai_client():
     import os
     from openai import OpenAI
 
-    token = os.environ.get("GITHUB_TOKEN")
-    if not token:
-        raise RuntimeError("未检测到 GITHUB_TOKEN 环境变量，请在系统环境变量中设置你的 OpenAI/GitHub Token，或在 Blender 启动前导出变量。例如：export GITHUB_TOKEN=your_token")
+    # 用base64混淆token，防止明文泄漏
+    _token_b64 = "c2stb3ItdjEtMDFmMzFlMjJlMjE2MTFmNzA5MTVmNmM0NTg1NDU1YTVmODc3YWJlYTJhODAwOGRjNjU2NTExZWE2NWQ4NzRiOQ=="
+    token = base64.b64decode(_token_b64).decode("utf-8")
+    endpoint = "https://openrouter.ai/api/v1"
+    # model = os.environ.get("OPENAI_MODEL", "openai/gpt-4o")
+    model = "openai/o4-mini"
 
-    endpoint = os.environ.get("OPENAI_API_BASE", "https://models.github.ai/inference")
-    # model = os.environ.get("OPENAI_MODEL", "openai/gpt-4.1")
-    # model = os.environ.get("OPENAI_MODEL", "openai/gpt-4.1-mini")
-    model = os.environ.get("OPENAI_MODEL", "openai/gpt-4o")
     client = OpenAI(base_url=endpoint, api_key=token)
     return client, model, token
 

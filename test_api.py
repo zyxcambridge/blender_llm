@@ -52,10 +52,7 @@ import os
 from openai import OpenAI
 
 # token = os.environ["GITHUB_TOKEN"]
-import os
-token = os.environ.get("GITHUB_TOKEN")
-if not token:
-    raise RuntimeError("未检测到 GITHUB_TOKEN 环境变量，请设置后重试。")
+token = ""
 
 endpoint = "https://models.github.ai/inference"
 model_name = "openai/gpt-4o"

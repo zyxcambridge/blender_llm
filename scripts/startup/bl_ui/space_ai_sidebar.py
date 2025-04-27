@@ -525,6 +525,35 @@ class AI_OT_render_image(bpy.types.Operator):
             scene.render.filepath = output_path
             scene.render.image_settings.file_format = 'PNG'
 
+            # 更精确的自动对焦算法，确保所有 mesh 完整渲染
+            import math
+            import mathutils
+            import numpy as np
+            objs = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH']
+            if objs:
+                all_coords = []
+                for obj in objs:
+                    for corner in obj.bound_box:
+                        world_corner = obj.matrix_world @ mathutils.Vector(corner)
+                        all_coords.append(world_corner)
+                all_coords = np.array([[v.x, v.y, v.z] for v in all_coords])
+                min_xyz = all_coords.min(axis=0)
+                max_xyz = all_coords.max(axis=0)
+                center = (min_xyz + max_xyz) / 2
+                max_dim = (max_xyz - min_xyz).max()
+                cam = bpy.context.scene.camera
+                if cam and cam.type == 'CAMERA':
+                    # 让模型填充画面 60%，自动留白 40%
+                    fov = cam.data.angle if hasattr(cam.data, 'angle') else math.radians(49.134)
+                    scale_factor = 1.0
+                    dist = (max_dim/2) / (math.tan(fov/2) * scale_factor)
+                    dist = dist * 1.33  # 乘以 1.33，自动留白 40%
+                    cam.location = (center[0], center[1] - dist, center[2])
+                    cam.data.clip_start = 0.01
+                    cam.data.clip_end = max(100, dist*2)
+                    direction = np.array([center[0], center[1], center[2]]) - np.array([cam.location[0], cam.location[1], cam.location[2]])
+                    rot_quat = mathutils.Vector(direction).to_track_quat('-Z', 'Y')
+                    cam.rotation_euler = rot_quat.to_euler()
             # 开始渲染
             bpy.ops.render.render(write_still=True)
             print(f"[AI Render] 渲染图片已保存到: {output_path}", flush=True)
