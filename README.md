@@ -32,6 +32,8 @@ git clone https://github.com/zyxcambridge/blender_llm.git
 
 # Build Blender with the plugin
 cd blender_llm
+
+[![下载 Mac ARM 版本](https://img.shields.io/badge/下载-Mac_ARM_版本-blue?style=for-the-badge)](https://github.com/zyxcambridge/blender_llm/releases/download/v1.0.0/BlenderAI.dmg)
 make -j16
 
 # Run Blender with 3D Moder Copilot
