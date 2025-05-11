@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://zyxcambridge.github.io/blender_llm/sitemap.xml

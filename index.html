@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Moder Copilot - Blender LLM Integration</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><i class="fas fa-cube"></i> 3D Moder Copilot</h1>
+            <p class="subtitle">AI-Powered Assistant for Blender</p>
+        </div>
+    </header>
+
+    <nav>
+        <div class="container">
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#installation">Installation</a></li>
+                <li><a href="#usage">Usage</a></li>
+                <li><a href="#video-demo">Demo</a></li>
+                <li><a href="#resources">Resources</a></li>
+                <li><a href="https://github.com/zyxcambridge/blender_llm" target="_blank">GitHub <i class="fab fa-github"></i></a></li>
+                <li><a href="https://discord.gg/ZhNHbYaz" target="_blank">Discord <i class="fab fa-discord"></i></a></li>
+                <li class="fork-nav"><a href="https://github.com/zyxcambridge/blender_llm/fork" target="_blank"><i class="fas fa-code-branch"></i> Fork Project</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section id="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h2>Transform Your 3D Modeling Workflow</h2>
+                <p>3D Moder Copilot integrates advanced AI capabilities directly into Blender, enabling natural language control of complex 3D modeling tasks.</p>
+                <div class="cta-buttons">
+                    <a href="#inspiration" class="btn primary">Get Inspired</a>
+                    <a href="https://github.com/zyxcambridge/blender_llm" class="btn secondary" target="_blank">View on GitHub</a>
+                    <a href="https://github.com/zyxcambridge/blender_llm/fork" class="btn fork"><i class="fas fa-code-branch"></i> Fork Project</a>
+                    <a href="https://github.com/zyxcambridge/blender_llm/blob/ai_agent_1.0/blender_ai_assistant_yixin/README.md" class="btn" style="background:#ffb300;color:#222;margin-left:10px;" target="_blank"><i class="fas fa-robot"></i> Blender AI Assistant 文档</a>
+                    <a href="https://github.com/zyxcambridge/blender_llm/blob/ai_agent_1.0/blender_ai_assistant_yixin/blender_ai_assistant_yixin.zip?raw=true" class="btn" style="background:#4caf50;color:#fff;margin-left:10px;" target="_blank"><i class="fas fa-download"></i> 下载插件安装包</a>
+                </div>
+            </div>
+            <div class="hero-image">
+                <!-- 视频播放器 -->
+                <div class="hero-video-container">
+                    <video controls autoplay muted loop poster="images/video-poster.jpg">
+    <source src="videos/交互式建模cursor.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="overview" class="bg-dark">
+        <div class="container">
+            <h2>Overview</h2>
+            <div class="overview-content">
+                <div class="overview-text">
+                    <p>3D Moder Copilot is an innovative AI assistant that seamlessly integrates with Blender, providing intelligent assistance for 3D modeling, animation, and rendering tasks.</p>
+                    <p>Built on Claude 3.7 Sonnet by Anthropic, this tool understands natural language commands and translates them into precise Blender operations, making complex 3D workflows more accessible and efficient.</p>
+                </div>
+                <div class="overview-image">
+    <video controls poster="images/video-poster.jpg" style="max-width:100%;border-radius:10px;box-shadow:0 2px 12px #2225;">
+        <source src="videos/交互式建模cursor.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+</div>
+            </div>
+        </div>
+    </section>
+
+    <section id="features">
+        <div class="container">
+            <h2>Key Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-comments"></i></div>
+                    <h3>Natural Language Control</h3>
+                    <p>Control Blender using conversational commands instead of navigating complex menus and shortcuts.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-magic"></i></div>
+                    <h3>Auto Mesh Optimization</h3>
+                    <p>Automatically detect and fix topology issues, non-manifold edges, and other common mesh problems.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-paint-brush"></i></div>
+                    <h3>Material Generation</h3>
+                    <p>Generate complex materials and textures with simple text descriptions.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-bone"></i></div>
+                    <h3>Rigging Assistance</h3>
+                    <p>Simplify character rigging with AI-guided bone placement and weight painting.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-file-import"></i></div>
+                    <h3>3D Model Import</h3>
+                    <p>Import and optimize 3D models from various formats including OBJ, FBX, and GLB.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-microphone"></i></div>
+                    <h3>Voice Control</h3>
+                    <p>Control Blender with voice commands for a hands-free modeling experience.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="inspiration" class="bg-dark">
+        <div class="container">
+            <h2>Project Inspiration</h2>
+
+            <div class="inspiration-box">
+                <h3>Why We Created This</h3>
+                <p>3D Moder Copilot was conceived as a bridge between natural language processing and 3D modeling. We believe that the future of 3D creation lies in the seamless integration of AI assistants that understand human intent and translate it into complex modeling operations.</p>
+                <p>This project serves as an inspiration and starting point for developers interested in:</p>
+                <ul>
+                    <li>Integrating large language models with creative software</li>
+                    <li>Building voice-controlled interfaces for 3D applications</li>
+                    <li>Creating AI assistants that understand spatial relationships and design principles</li>
+                    <li>Developing tools that make 3D modeling more accessible to non-technical users</li>
+                </ul>
+            </div>
+
+            <h3>Development Guide</h3>
+            <div class="installation-steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Fork and Clone the Repository</h3>
+                        <div class="code-block">
+                            <pre><code>git clone https://github.com/YOUR-USERNAME/blender_llm.git
+cd blender_llm</code></pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this)"><i class="fas fa-copy"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Set Up Development Environment</h3>
+                        <div class="code-block">
+                            <pre><code># Install dependencies for Blender development
+# For macOS
+brew install cmake python3 openexr
+
+# For Ubuntu/Debian
+# sudo apt-get install build-essential cmake python3-dev libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev</code></pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this)"><i class="fas fa-copy"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Implement Your AI Integration</h3>
+                        <div class="code-block">
+                            <pre><code># Example: Modify the AI assistant panel in
+scripts/startup/bl_ui/space_ai_sidebar.py
+
+# Example: Add voice control functionality in
+scripts/startup/bl_ui/space_3d_moder.py</code></pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this)"><i class="fas fa-copy"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>Build and Test Your Implementation</h3>
+                        <div class="code-block">
+                            <pre><code>make -j16
+./build_darwin/bin/Blender.app/Contents/MacOS/Blender</code></pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this)"><i class="fas fa-copy"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="usage">
+        <div class="container">
+            <h2>Implementation Guide</h2>
+            <div class="usage-content">
+                <div class="usage-text">
+                    <h3>Key Components</h3>
+                    <ol>
+                        <li><strong>UI Integration</strong>: Implement the 3D Moder Copilot button and panel in Blender's interface</li>
+                        <li><strong>Command Parsing</strong>: Create a system to interpret natural language or structured commands</li>
+                        <li><strong>API Connection</strong>: Connect to Claude 3.7 Sonnet or other LLM APIs</li>
+                        <li><strong>Blender API Mapping</strong>: Map natural language to Blender's Python API calls</li>
+                    </ol>
+
+                    <h3>Command System Design</h3>
+                    <p>We recommend implementing a flexible command system with these features:</p>
+                    <ul>
+                        <li><code>/command [args]</code> - Direct commands with arguments (e.g., <code>/subdivide 2</code>)</li>
+                        <li><code>@plugin [name]</code> - Plugin system for extensibility (e.g., <code>@plugin material_library</code>)</li>
+                        <li><code># [context]</code> - Context setting commands (e.g., <code># Add reference image front.jpg</code>)</li>
+                        <li><code>Natural language queries</code> - Free-form requests (e.g., <code>Create a smooth metallic sphere with blue reflection</code>)</li>
+                    </ul>
+                </div>
+                <div class="usage-image">
+                    <img src="images/usage.png" alt="3D Moder Copilot Architecture" onerror="this.src='https://placehold.co/500x400/252525/CCCCCC?text=Architecture+Diagram'">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="video-demo" class="bg-dark">
+        <div class="container">
+            <h2>3D Moder Copilot Demo</h2>
+            <div class="video-container">
+                <!-- 视频播放器 -->
+                <video id="demo-video" controls width="100%" poster="images/video-poster.jpg">
+                    <source src="videos/0a788f187e6d6e03ccf73c19d2612b.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            <p class="demo-caption">Watch 3D Moder Copilot in action, demonstrating the AI-powered interface for Blender. This video showcases the natural language control, voice commands, and intelligent 3D modeling assistance.</p>
+        </div>
+    </section>
+
+    <section id="resources" class="bg-light">
+        <div class="container">
+            <h2>Technical Resources</h2>
+            <div class="resources-grid">
+                <div class="resource-card">
+                    <div class="resource-icon"><i class="fas fa-book"></i></div>
+                    <h3>Blender Python API</h3>
+                    <p>The official Blender Python API documentation is essential for understanding how to programmatically control Blender.</p>
+                    <a href="https://docs.blender.org/api/current/" class="resource-link" target="_blank">View Documentation</a>
+                </div>
+                <div class="resource-card">
+                    <div class="resource-icon"><i class="fas fa-brain"></i></div>
+                    <h3>Claude API</h3>
+                    <p>Learn how to integrate Claude 3.7 Sonnet or other Anthropic models into your implementation.</p>
+                    <a href="https://docs.anthropic.com/claude/reference/getting-started-with-the-api" class="resource-link" target="_blank">View Documentation</a>
+                </div>
+                <div class="resource-card">
+                    <div class="resource-icon"><i class="fas fa-microphone"></i></div>
+                    <h3>Speech Recognition</h3>
+                    <p>Implement voice control using libraries like SpeechRecognition or Whisper.</p>
+                    <a href="https://github.com/openai/whisper" class="resource-link" target="_blank">Explore Whisper</a>
+                </div>
+                <div class="resource-card">
+                    <div class="resource-icon"><i class="fas fa-code"></i></div>
+                    <h3>Example Projects</h3>
+                    <p>Explore similar projects that integrate AI with creative software.</p>
+                    <a href="https://github.com/topics/ai-assisted-design" class="resource-link" target="_blank">Browse Examples</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="contribute">
+        <div class="container">
+            <h2>Contribute & Connect</h2>
+            <p>3D Moder Copilot is an open-source project and we welcome contributions from the community. Whether you're fixing bugs, adding features, or improving documentation, your help is appreciated!</p>
+
+            <div class="community-box">
+                <div class="community-icon"><i class="fab fa-discord"></i></div>
+                <h3>Join Our Discord Community</h3>
+                <p>Connect with other developers, share your implementations, ask questions, and collaborate on new features in our Discord server.</p>
+                <a href="https://discord.gg/ZhNHbYaz" class="btn discord" target="_blank">Join Discord Server</a>
+            </div>
+
+            <div class="contribute-buttons">
+                <a href="https://github.com/zyxcambridge/blender_llm/issues" class="btn secondary" target="_blank">Report Issues</a>
+                <a href="https://github.com/zyxcambridge/blender_llm/pulls" class="btn secondary" target="_blank">Submit Pull Requests</a>
+                <a href="https://github.com/zyxcambridge/blender_llm/fork" class="btn secondary" target="_blank">Fork Project</a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h3><i class="fas fa-cube"></i> 3D Moder Copilot</h3>
+                    <p>AI-Powered Assistant for Blender</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://github.com/zyxcambridge/blender_llm">GitHub Repository</a></li>
+                        <li><a href="https://github.com/zyxcambridge/blender_llm/issues">Issue Tracker</a></li>
+                        <li><a href="https://github.com/zyxcambridge/blender_llm/wiki">Documentation</a></li>
+                        <li><a href="https://github.com/zyxcambridge/blender_llm/fork"><strong><i class="fas fa-code-branch"></i> Fork Project</strong></a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="https://www.blender.org/">Blender Official</a></li>
+                        <li><a href="https://www.anthropic.com/">Anthropic Claude</a></li>
+                        <li><a href="https://developer.blender.org/">Blender Developer</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2023 3D Moder Copilot. All rights reserved.</p>
+                <div class="social-links">
+                    <a href="https://github.com/zyxcambridge" target="_blank"><i class="fab fa-github"></i></a>
+                    <a href="https://discord.gg/ZhNHbYaz" target="_blank"><i class="fab fa-discord"></i></a>
+                    <a href="#" target="_blank"><i class="fab fa-twitter"></i></a>
+                    <a href="#" target="_blank"><i class="fab fa-linkedin"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function copyToClipboard(button) {
+            const codeBlock = button.previousElementSibling;
+            const textToCopy = codeBlock.textContent;
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                button.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(() => {
+                    button.innerHTML = '<i class="fas fa-copy"></i>';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            });
+        }
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // 确保视频自动播放
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取Hero部分的视频
+            const heroVideo = document.querySelector('.hero-video-container video');
+
+            // 尝试播放视频
+            if (heroVideo) {
+                // 添加加载事件监听器
+                heroVideo.addEventListener('loadeddata', function() {
+                    // 尝试播放视频
+                    const playPromise = heroVideo.play();
+
+                    // 处理播放承诺
+                    if (playPromise !== undefined) {
+                        playPromise.then(_ => {
+                            // 自动播放成功
+                            console.log('自动播放成功');
+                        })
+                        .catch(error => {
+                            // 自动播放失败，可能是浏览器策略阻止了自动播放
+                            console.log('自动播放失败:', error);
+
+                            // 添加点击事件监听器，允许用户点击页面任何地方开始播放
+                            document.addEventListener('click', function startPlayback() {
+                                heroVideo.play();
+                                // 移除事件监听器，避免重复触发
+                                document.removeEventListener('click', startPlayback);
+                            }, { once: true });
+                        });
+                    }
+                });
+
+                // 添加视频结束事件监听器
+                heroVideo.addEventListener('ended', function() {
+                    // 视频播放结束后，重新播放
+                    heroVideo.currentTime = 0;
+                    heroVideo.play();
+                });
+            }
+
+            // 处理演示部分的视频
+            const demoVideo = document.getElementById('demo-video');
+            if (demoVideo) {
+                // 创建交叉观察器，当视频进入视口时自动播放
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            // 视频进入视口，尝试播放
+                            const playPromise = demoVideo.play();
+
+                            if (playPromise !== undefined) {
+                                playPromise.catch(error => {
+                                    // 自动播放失败，可能是浏览器策略阻止了自动播放
+                                    console.log('演示视频自动播放失败:', error);
+                                });
+                            }
+
+                            // 一旦视频开始播放，停止观察
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                }, { threshold: 0.5 }); // 当至少50%的视频可见时触发
+
+                // 开始观察演示视频
+                observer.observe(demoVideo);
+            }
+        });
+    </script>
+<div style="margin: 32px 0; text-align:center;">
+  <a href="https://github.com/zyxcambridge/blender_llm/releases/download/v1.0.0/BlenderAI.dmg" download>
+    <button style="font-size:1.2em;padding:12px 32px;background:#007aff;color:white;border:none;border-radius:6px;cursor:pointer;">
+      下载 Mac ARM 版本
+    </button>
+  </a>
+</div>
+</body>
+</html>
